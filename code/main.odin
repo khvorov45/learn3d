@@ -15,16 +15,19 @@ main :: proc() {
 	pixels := make([]u32, window.dim.y * window.dim.x)
 	pixels_dim := window.dim
 
-	for pixel, index in &pixels {
-		switch {
-		case index < pixels_dim.x:
-			pixel = 0x00FF0000
-		case index % pixels_dim.x == 0:
-			pixel = 0x0000FF00
-		case index % pixels_dim.x == pixels_dim.x - 1:
-			pixel = 0x000000FF
-		case index >= (pixels_dim.y - 1) * pixels_dim.x:
-			pixel = 0x0000FFFF
+	for row in 0 ..< pixels_dim.y {
+		for col in 0 ..< pixels_dim.x {
+			pixel := &pixels[row * pixels_dim.x + col]
+			switch {
+			case row == 0:
+				pixel^ = 0x00FF0000
+			case row == pixels_dim.y - 1:
+				pixel^ = 0x0000FF00
+			case col == 0:
+				pixel^ = 0x000000FF
+			case col == pixels_dim.x - 1:
+				pixel^ = 0x0000FFFF
+			}
 		}
 	}
 

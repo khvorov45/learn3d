@@ -89,7 +89,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	pixel_info: win32.Bitmap_Info
 	pixel_info.header.size = size_of(pixel_info.header)
 	pixel_info.header.width = i32(width)
-	pixel_info.header.height = i32(height)
+	pixel_info.header.height = -i32(height) // NOTE(sen) Negative means top-down
 	pixel_info.header.planes = 1
 	pixel_info.header.bit_count = 32
 	pixel_info.header.compression = win32.BI_RGB

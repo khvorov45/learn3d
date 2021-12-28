@@ -3,10 +3,12 @@ package window_sdl
 import sdl "vendor:sdl2"
 
 Window :: struct {
-	is_running:   bool,
-	dim:          [2]int,
-	sdl_window:   ^sdl.Window,
-	sdl_renderer: ^sdl.Renderer,
+	is_running:      bool,
+	dim:             [2]int,
+	sdl_window:      ^sdl.Window,
+	sdl_renderer:    ^sdl.Renderer,
+	sdl_texture:     ^sdl.Texture,
+	sdl_texture_dim: [2]int,
 }
 
 create_window :: proc(title: string, width: int, height: int) -> Window {
@@ -32,7 +34,17 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	sdl.ShowWindow(window)
 	sdl.RenderPresent(renderer)
 
-	result := Window{true, [2]int{width, height}, window, renderer}
+	texture := sdl.CreateTexture(
+		renderer,
+		u32(sdl.PixelFormatEnum.ARGB8888),
+		sdl.TextureAccess.STREAMING,
+		i32(width),
+		i32(height),
+	)
+	texture_dim := [2]int{width, height}
+	assert(texture != nil)
+
+	result := Window{true, [2]int{width, height}, window, renderer, texture, texture_dim}
 	return result
 }
 
@@ -49,5 +61,20 @@ poll_input :: proc(window: ^Window) {
 }
 
 display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
+
+	assert(sdl.RenderClear(window.sdl_renderer) == 0)
+
+	update_texture_result := sdl.UpdateTexture(
+		window.sdl_texture,
+		nil,
+		raw_data(pixels),
+		i32(pixels_dim.x) * size_of(pixels[0]),
+	)
+	assert(update_texture_result == 0)
+
+	render_copy_result := sdl.RenderCopy(window.sdl_renderer, window.sdl_texture, nil, nil)
+	assert(render_copy_result == 0)
+
+	sdl.RenderPresent(window.sdl_renderer)
 
 }
