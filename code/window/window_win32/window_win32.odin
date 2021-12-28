@@ -1,7 +1,6 @@
 package window_win32
 
 import "core:sys/win32"
-import "core:fmt"
 
 GlobalRunning := true
 
