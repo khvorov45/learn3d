@@ -13,9 +13,9 @@ Window :: struct {
 	win32_pixel_info:      win32.Bitmap_Info,
 }
 
-create_window :: proc(width: int, height: int) -> Window {
+create_window :: proc(title: string, width: int, height: int) -> Window {
 
-	window_class_name := "Learn3d"
+	window_class_name := title
 	window_name := window_class_name
 	window_dim := [2]int{width, height}
 
@@ -127,22 +127,24 @@ poll_input :: proc(window: ^Window) {
 
 display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
-	result := win32.stretch_dibits(
-		window.win32_hdc,
-		0,
-		0,
-		i32(pixels_dim.x),
-		i32(pixels_dim.y),
-		0,
-		0,
-		i32(pixels_dim.x),
-		i32(pixels_dim.y),
-		raw_data(pixels),
-		&window.win32_pixel_info,
-		win32.DIB_RGB_COLORS,
-		win32.SRCCOPY,
-	)
-	assert(result == i32(pixels_dim.y))
+	if window.is_running {
+		result := win32.stretch_dibits(
+			window.win32_hdc,
+			0,
+			0,
+			i32(pixels_dim.x),
+			i32(pixels_dim.y),
+			0,
+			0,
+			i32(pixels_dim.x),
+			i32(pixels_dim.y),
+			raw_data(pixels),
+			&window.win32_pixel_info,
+			win32.DIB_RGB_COLORS,
+			win32.SRCCOPY,
+		)
+		assert(result == i32(pixels_dim.y))
+	}
 
 }
 

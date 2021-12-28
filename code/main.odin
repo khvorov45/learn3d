@@ -1,10 +1,16 @@
 package main
 
-when ODIN_OS == "windows" do import wnd "window/window_win32"
+USE_SDL :: true
+
+when USE_SDL {
+	import wnd "window/window_sdl"
+} else {
+	when ODIN_OS == "windows" do import wnd "window/window_win32"
+}
 
 main :: proc() {
 
-	window := wnd.create_window(1280, 720)
+	window := wnd.create_window("learn3d", 1280, 720)
 
 	pixels := make([]u32, window.dim.y * window.dim.x)
 	pixels_dim := window.dim
