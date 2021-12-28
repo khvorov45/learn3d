@@ -1,6 +1,6 @@
 package main
 
-USE_SDL :: true
+USE_SDL :: false
 
 when USE_SDL {
 	import wnd "window/window_sdl"

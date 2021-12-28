@@ -1,16 +1,20 @@
 package window_win32
 
 import "core:sys/win32"
+import shared ".."
 
 GlobalRunning := true
 
 Window :: struct {
-	is_running:            bool,
-	dim:                   [2]int,
-	win32_decorations_dim: [2]int,
-	win32_hwnd:            win32.Hwnd,
-	win32_hdc:             win32.Hdc,
-	win32_pixel_info:      win32.Bitmap_Info,
+	using shared: shared.Window,
+	win32:        Win32Window,
+}
+
+Win32Window :: struct {
+	decorations_dim: [2]int,
+	hwnd:            win32.Hwnd,
+	hdc:             win32.Hdc,
+	pixel_info:      win32.Bitmap_Info,
 }
 
 create_window :: proc(title: string, width: int, height: int) -> Window {
@@ -94,13 +98,13 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	pixel_info.header.bit_count = 32
 	pixel_info.header.compression = win32.BI_RGB
 
-	result := Window{true, window_dim, decorations_dim, window, hdc, pixel_info}
+	result := Window{{true, false, window_dim}, {decorations_dim, window, hdc, pixel_info}}
 	return result
 }
 
 poll_input :: proc(window: ^Window) {
 
-	hwnd := window.win32_hwnd
+	hwnd := window.win32.hwnd
 
 	message: win32.Msg
 	for win32.peek_message_a(&message, hwnd, 0, 0, 1) {
@@ -116,7 +120,7 @@ poll_input :: proc(window: ^Window) {
 	// NOTE(sen) Update dim
 	{
 		rect: win32.Rect
-		win32.get_client_rect(window.win32_hwnd, &rect)
+		win32.get_client_rect(window.win32.hwnd, &rect)
 		window.dim.y = int(rect.top - rect.bottom)
 		window.dim.x = int(rect.right - rect.left)
 	}
@@ -129,7 +133,7 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
 	if window.is_running {
 		result := win32.stretch_dibits(
-			window.win32_hdc,
+			window.win32.hdc,
 			0,
 			0,
 			i32(pixels_dim.x),
@@ -139,7 +143,7 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 			i32(pixels_dim.x),
 			i32(pixels_dim.y),
 			raw_data(pixels),
-			&window.win32_pixel_info,
+			&window.win32.pixel_info,
 			win32.DIB_RGB_COLORS,
 			win32.SRCCOPY,
 		)
