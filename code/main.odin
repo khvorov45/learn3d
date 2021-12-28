@@ -1,6 +1,6 @@
 package main
 
-USE_SDL :: false
+USE_SDL :: true
 
 when USE_SDL {
 	import wnd "window/window_sdl"
@@ -27,6 +27,10 @@ main :: proc() {
 				pixel^ = 0x000000FF
 			case col == pixels_dim.x - 1:
 				pixel^ = 0x0000FFFF
+			case col % 100 == 0:
+				pixel^ = 0x00222222
+			case row % 100 == 0:
+				pixel^ = 0x00222222
 			}
 		}
 	}
