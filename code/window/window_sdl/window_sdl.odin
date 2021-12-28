@@ -4,6 +4,7 @@ import sdl "vendor:sdl2"
 
 Window :: struct {
 	is_running:      bool,
+	is_fullscreen:   bool,
 	dim:             [2]int,
 	sdl_window:      ^sdl.Window,
 	sdl_renderer:    ^sdl.Renderer,
@@ -44,7 +45,15 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	texture_dim := [2]int{width, height}
 	assert(texture != nil)
 
-	result := Window{true, [2]int{width, height}, window, renderer, texture, texture_dim}
+	result := Window{
+		true,
+		false,
+		[2]int{width, height},
+		window,
+		renderer,
+		texture,
+		texture_dim,
+	}
 	return result
 }
 
@@ -55,8 +64,20 @@ poll_input :: proc(window: ^Window) {
 		#partial switch event.type {
 		case .QUIT:
 			window.is_running = false
+		case .KEYDOWN:
+			if event.key.keysym.sym == .RETURN && .RALT in event.key.keysym.mod {
+				if window.is_fullscreen {
+					sdl.SetWindowFullscreen(window.sdl_window, nil)
+				} else {
+					sdl.SetWindowFullscreen(window.sdl_window, sdl.WINDOW_FULLSCREEN_DESKTOP)
+				}
+				window.is_fullscreen = !window.is_fullscreen
+			}
+
 		}
 	}
+
+	sdl.GetWindowSize(window.sdl_window, cast(^i32)&window.dim.x, cast(^i32)&window.dim.y)
 
 }
 
