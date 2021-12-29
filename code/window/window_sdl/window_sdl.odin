@@ -15,6 +15,12 @@ SdlWindow :: struct {
 	texture_dim: [2]int,
 }
 
+Input :: shared.Input
+
+clear_half_transitions :: shared.clear_half_transitions
+
+was_pressed :: shared.was_pressed
+
 create_window :: proc(title: string, width: int, height: int) -> Window {
 
 	assert(sdl.Init(sdl.INIT_EVERYTHING) == 0)
@@ -55,23 +61,23 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	return result
 }
 
-poll_input :: proc(window: ^Window) {
+poll_input :: proc(window: ^Window, input: ^Input) {
 
 	event: sdl.Event
 	for sdl.PollEvent(&event) != 0 {
 		#partial switch event.type {
 		case .QUIT:
 			window.is_running = false
-		case .KEYDOWN:
-			if event.key.keysym.sym == .RETURN && .RALT in event.key.keysym.mod {
-				if window.is_fullscreen {
-					sdl.SetWindowFullscreen(window.sdl.window, nil)
-				} else {
-					sdl.SetWindowFullscreen(window.sdl.window, sdl.WINDOW_FULLSCREEN_DESKTOP)
-				}
-				window.is_fullscreen = !window.is_fullscreen
+		case .KEYDOWN, .KEYUP:
+			ended_down := event.type == .KEYDOWN
+			#partial switch event.key.keysym.sym {
+			case .RETURN:
+				input.enter.ended_down = ended_down
+				input.enter.half_transition_count += 1
+			case .RALT:
+				input.alt_r.ended_down = ended_down
+				input.alt_r.half_transition_count += 1
 			}
-
 		}
 	}
 
@@ -96,4 +102,13 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
 	sdl.RenderPresent(window.sdl.renderer)
 
+}
+
+toggle_fullscreen :: proc(window: ^Window) {
+	if window.is_fullscreen {
+		sdl.SetWindowFullscreen(window.sdl.window, nil)
+	} else {
+		sdl.SetWindowFullscreen(window.sdl.window, sdl.WINDOW_FULLSCREEN_DESKTOP)
+	}
+	window.is_fullscreen = !window.is_fullscreen
 }

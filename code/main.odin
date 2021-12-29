@@ -17,9 +17,16 @@ main :: proc() {
 	pixels := make([]u32, window.dim.y * window.dim.x)
 	pixels_dim := window.dim
 
+	input: wnd.Input
+
 	for window.is_running {
 
-		wnd.poll_input(&window)
+		wnd.clear_half_transitions(&input)
+		wnd.poll_input(&window, &input)
+
+		if input.alt_r.ended_down && wnd.was_pressed(input.enter) {
+			wnd.toggle_fullscreen(&window)
+		}
 
 		rdr.clear(&pixels)
 

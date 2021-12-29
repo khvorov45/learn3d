@@ -1,12 +1,20 @@
 {
   "cSpell.words": [
     "ARGB",
+    "DEFAULTTOPRIMARY",
     "HREDRAW",
     "Hwnd",
+    "KEYUP",
     "Lparam",
     "Lresult",
     "NOMOVE",
+    "NOOWNERZORDER",
+    "NOSIZE",
+    "NOZORDER",
+    "RALT",
     "SRCCOPY",
+    "SYSKEYDOWN",
+    "SYSKEYUP",
     "VREDRAW",
     "wparam"
   ]

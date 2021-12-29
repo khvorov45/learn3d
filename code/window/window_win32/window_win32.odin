@@ -11,11 +11,18 @@ Window :: struct {
 }
 
 Win32Window :: struct {
-	decorations_dim: [2]int,
-	hwnd:            win32.Hwnd,
-	hdc:             win32.Hdc,
-	pixel_info:      win32.Bitmap_Info,
+	decorations_dim:    [2]int,
+	hwnd:               win32.Hwnd,
+	hdc:                win32.Hdc,
+	pixel_info:         win32.Bitmap_Info,
+	previous_placement: win32.Window_Placement,
 }
+
+Input :: shared.Input
+
+clear_half_transitions :: shared.clear_half_transitions
+
+was_pressed :: shared.was_pressed
 
 create_window :: proc(title: string, width: int, height: int) -> Window {
 
@@ -98,11 +105,17 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	pixel_info.header.bit_count = 32
 	pixel_info.header.compression = win32.BI_RGB
 
-	result := Window{{true, false, window_dim}, {decorations_dim, window, hdc, pixel_info}}
+	previous_placement: win32.Window_Placement
+	previous_placement.length = size_of(previous_placement)
+
+	result := Window{
+		{true, false, window_dim},
+		{decorations_dim, window, hdc, pixel_info, previous_placement},
+	}
 	return result
 }
 
-poll_input :: proc(window: ^Window) {
+poll_input :: proc(window: ^Window, input: ^shared.Input) {
 
 	hwnd := window.win32.hwnd
 
@@ -110,6 +123,19 @@ poll_input :: proc(window: ^Window) {
 	for win32.peek_message_a(&message, hwnd, 0, 0, 1) {
 
 		switch message.message {
+		case win32.WM_KEYDOWN, win32.WM_SYSKEYDOWN, win32.WM_KEYUP, win32.WM_SYSKEYUP:
+			ended_down := (message.lparam & (1 << 31)) == 0
+			switch message.wparam {
+			case win32.VK_RETURN:
+				input.enter.ended_down = ended_down
+				input.enter.half_transition_count += 1
+			case win32.VK_MENU:
+				if message.lparam & (1 << 24) != 0 {
+					input.alt_r.ended_down = ended_down
+					input.alt_r.half_transition_count += 1
+				}
+			}
+
 		case:
 			win32.translate_message(&message)
 			win32.dispatch_message_a(&message)
@@ -169,4 +195,73 @@ window_proc :: proc(
 	}
 
 	return result
+}
+
+toggle_fullscreen :: proc(window: ^Window) {
+
+	// NOTE(sen) Taken from https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+
+	style := win32.get_window_long_ptr_a(window.win32.hwnd, win32.GWL_STYLE)
+
+	if window.is_fullscreen {
+
+		win32.set_window_long_ptr_a(
+			window.win32.hwnd,
+			win32.GWL_STYLE,
+			win32.Long_Ptr(uint(style) | uint(win32.WS_OVERLAPPEDWINDOW)),
+		)
+
+		win32.set_window_placement(window.win32.hwnd, &window.win32.previous_placement)
+
+		win32.set_window_pos(
+			window.win32.hwnd,
+			nil,
+			0,
+			0,
+			0,
+			0,
+			win32.SWP_NOMOVE |
+			win32.SWP_NOSIZE |
+			win32.SWP_NOZORDER |
+			win32.SWP_NOOWNERZORDER |
+			win32.SWP_FRAMECHANGED,
+		)
+
+	} else {
+
+		mi: win32.Monitor_Info
+		mi.size = size_of(mi)
+		get_monitor_result := win32.get_monitor_info_a(
+			win32.monitor_from_window(window.win32.hwnd, win32.MONITOR_DEFAULTTOPRIMARY),
+			&mi,
+		)
+		assert(bool(get_monitor_result))
+
+		get_window_placement_result := win32.get_window_placement(
+			window.win32.hwnd,
+			&window.win32.previous_placement,
+		)
+		assert(bool(get_window_placement_result))
+
+		win32.set_window_long_ptr_a(
+			window.win32.hwnd,
+			win32.GWL_STYLE,
+			win32.Long_Ptr(uint(style) & ~uint(win32.WS_OVERLAPPEDWINDOW)),
+		)
+
+		HWND_TOP: win32.Hwnd = nil
+
+		win32.set_window_pos(
+			window.win32.hwnd,
+			HWND_TOP,
+			mi.monitor.left,
+			mi.monitor.top,
+			mi.monitor.right - mi.monitor.left,
+			mi.monitor.bottom - mi.monitor.top,
+			win32.SWP_NOOWNERZORDER | win32.SWP_FRAMECHANGED,
+		)
+
+	}
+
+	window.is_fullscreen = !window.is_fullscreen
 }
