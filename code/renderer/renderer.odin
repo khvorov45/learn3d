@@ -2,24 +2,26 @@ package renderer
 
 import "core:math"
 
-project :: proc(point: [3]f32, pixels_dim: [2]int, camera: [3]f32, fov: f32) -> [2]f32 {
+// Returns offset from screen center in world units
+project :: proc(point: [3]f32, camera: [3]f32) -> [2]f32 {
 
 	point_camera_space := point - camera
 
 	point_screen := point_camera_space.xy
 	point_screen /= point_camera_space.z
 
-	screen_width := 2 * math.tan(fov * 0.5)
-	aspect_ratio := f32(pixels_dim.y) / f32(pixels_dim.x)
-	screen_height := aspect_ratio * screen_width
+	return point_screen
+}
 
-	pixels_per_world_unit: f32 = 550
-	point_pixels := point_screen * pixels_per_world_unit
+// Takes offset from screen center in world units
+screen_world_to_pixels :: proc(point_screen_world: [2]f32, world_to_pixels: f32, pixels_dim: [2]int) -> [2]f32 {
+
+	point_pixels := point_screen_world * [2]f32{world_to_pixels, -world_to_pixels}
 
 	half_dim := [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)} * 0.5
-	point_pixels_bottomleft := point_pixels + half_dim
+	point_pixels_from_corner := point_pixels + half_dim
 
-	return point_pixels_bottomleft
+	return point_pixels_from_corner
 }
 
 rotate_x :: proc(vec: [3]f32, angle: f32) -> [3]f32 {

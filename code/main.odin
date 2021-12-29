@@ -16,15 +16,30 @@ main :: proc() {
 
 	window := wnd.create_window("learn3d", 1280, 720)
 
-	points: [9 * 9 * 9][3]f32
-	point_count := 0
-	for x: f32 = -1.0; x <= 1.0; x += 0.25 {
-		for y: f32 = -1.0; y <= 1.0; y += 0.25 {
-			for z: f32 = -1.0; z <= 1.0; z += 0.25 {
-				points[point_count] = [3]f32{x, y, z}
-				point_count += 1
-			}
-		}
+	mesh_vertices := [?][3]f32{
+		[3]f32{-1, -1, -1},
+		[3]f32{-1, 1, -1},
+		[3]f32{1, 1, -1},
+		[3]f32{1, -1, -1},
+		[3]f32{1, 1, 1},
+		[3]f32{1, -1, 1},
+		[3]f32{-1, 1, 1},
+		[3]f32{-1, -1, 1},
+	}
+
+	mesh_faces := [?][3]int{
+		[3]int{1, 2, 3},
+		[3]int{1, 3, 4},
+		[3]int{4, 3, 5},
+		[3]int{4, 5, 6},
+		[3]int{6, 5, 7},
+		[3]int{6, 7, 8},
+		[3]int{8, 7, 2},
+		[3]int{8, 2, 1},
+		[3]int{2, 7, 5},
+		[3]int{2, 5, 3},
+		[3]int{6, 8, 1},
+		[3]int{6, 1, 4},
 	}
 
 	pixels := make([]u32, window.dim.y * window.dim.x)
@@ -35,8 +50,6 @@ main :: proc() {
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
 	target_frame_duration := time.Duration(target_frame_ns)
-
-	rotation := [3]f32{0, 0, 0}
 
 	for window.is_running {
 
@@ -63,39 +76,19 @@ main :: proc() {
 
 		rdr.clear(&pixels)
 
-		rotation.y += 0.01
-		rotation.z += 0.01
-		rotation.x += 0.01
-
-		for point in points {
-
-			point_rotated := rdr.rotate_y(point, rotation.y)
-			point_rotated = rdr.rotate_z(point_rotated, rotation.z)
-			point_rotated = rdr.rotate_x(point_rotated, rotation.x)
-
-			point_projected := rdr.project(point_rotated, pixels_dim, [3]f32{0, 0, -5}, 1.4)
-
-			color := [4]f32{1, 0, 0, 1}
-			if point.y < 0 {
-				color.g = 1
-			}
-			depth01 := (f32(point.z) + 1) / 2
-			color *= depth01 * -0.8 + 1
-
-			color *= 255.0
-
-			color32 := rdr.color_to_u32argb(color)
-
-			if point.x == -1 || point.x == 1 || point.y == -1 || point.y == 1 || point.z == 1 {
+		for face in mesh_faces {
+			for vertex_index in face {
+				vertex := mesh_vertices[vertex_index - 1]
+				vertex_projected := rdr.project(vertex, [3]f32{0, 0, -5})
+				vertex_pixels := rdr.screen_world_to_pixels(vertex_projected, 500, pixels_dim)
 				rdr.draw_rect(
 					&pixels,
 					pixels_dim,
-					[2]int{int(point_projected.x), int(point_projected.y)},
-					[2]int{5, 5},
-					color32,
+					[2]int{int(vertex_pixels.x), int(vertex_pixels.y)},
+					[2]int{4, 4},
+					0xFFFFFF00,
 				)
 			}
-
 		}
 
 		wnd.display_pixels(&window, pixels, pixels_dim)
