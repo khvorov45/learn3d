@@ -32,6 +32,8 @@ main :: proc() {
 
 		rdr.draw_rect(&pixels, pixels_dim, [2]int{50, 50}, [2]int{250, 250}, 0xFFFF0000)
 
+		rdr.draw_pixel(&pixels, pixels_dim, [2]int{300, 700}, 0xFF00FF00)
+
 		wnd.display_pixels(&window, pixels, pixels_dim)
 
 	}
