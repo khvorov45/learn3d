@@ -16,6 +16,17 @@ main :: proc() {
 
 	window := wnd.create_window("learn3d", 1280, 720)
 
+	points: [9 * 9 * 9][3]f32
+	point_count := 0
+	for x: f32 = -1.0; x <= 1.0; x += 0.25 {
+		for y: f32 = -1.0; y <= 1.0; y += 0.25 {
+			for z: f32 = -1.0; z <= 1.0; z += 0.25 {
+				points[point_count] = [3]f32{x, y, z}
+				point_count += 1
+			}
+		}
+	}
+
 	pixels := make([]u32, window.dim.y * window.dim.x)
 	pixels_dim := window.dim
 
@@ -38,9 +49,20 @@ main :: proc() {
 
 		rdr.clear(&pixels)
 
-		rdr.draw_rect(&pixels, pixels_dim, [2]int{50, 50}, [2]int{250, 250}, 0xFFFF0000)
-
-		rdr.draw_pixel(&pixels, pixels_dim, [2]int{300, 700}, 0xFF00FF00)
+		for point in points {
+			point_projected := rdr.project(point, pixels_dim)
+			color: u32 = 0xFF00FF00
+			if point.y < 0 {
+				color = 0xFF00FFFF
+			}
+			rdr.draw_rect(
+				&pixels,
+				pixels_dim,
+				[2]int{int(point_projected.x), int(point_projected.y)},
+				[2]int{5, 5},
+				color,
+			)
+		}
 
 		wnd.display_pixels(&window, pixels, pixels_dim)
 
