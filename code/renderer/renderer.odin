@@ -4,7 +4,7 @@ import "core:math"
 
 Mesh :: struct {
 	vertices: [dynamic][3]f32,
-	faces: [dynamic][3]int,
+	faces:    [dynamic][3]int,
 	rotation: [3]f32,
 }
 
@@ -79,7 +79,11 @@ project :: proc(point: [3]f32, camera: [3]f32) -> [2]f32 {
 }
 
 // Takes offset from screen center in world units
-screen_world_to_pixels :: proc(point_screen_world: [2]f32, world_to_pixels: f32, pixels_dim: [2]int) -> [2]f32 {
+screen_world_to_pixels :: proc(
+	point_screen_world: [2]f32,
+	world_to_pixels: f32,
+	pixels_dim: [2]int,
+) -> [2]f32 {
 
 	point_pixels := point_screen_world * [2]f32{world_to_pixels, -world_to_pixels}
 
@@ -113,6 +117,14 @@ rotate_z :: proc(vec: [3]f32, angle: f32) -> [3]f32 {
 	sin_angle := math.sin(angle)
 	result.x = vec.x * cos_angle - vec.y * sin_angle
 	result.y = vec.x * sin_angle + vec.y * cos_angle
+	return result
+}
+
+rotate_axis_aligned :: proc(vec: [3]f32, angles: [3]f32) -> [3]f32 {
+	result := vec
+	result = rotate_x(result, angles.x)
+	result = rotate_y(result, angles.y)
+	result = rotate_z(result, angles.z)
 	return result
 }
 
@@ -156,7 +168,7 @@ draw_line :: proc(
 	inc := [2]f32{f32(delta.x), f32(delta.y)} / f32(run_length)
 
 	cur := [2]f32{f32(start.x), f32(start.y)}
-	for _ in 0..<run_length {
+	for _ in 0 ..< run_length {
 		cur_rounded := round(cur)
 		if between(cur_rounded, [2]int{0, 0}, pixels_dim - 1) {
 			pixels[cur_rounded.y * pixels_dim.x + cur_rounded.x] = color
@@ -175,7 +187,10 @@ between_2int :: proc(input: [2]int, left: [2]int, right: [2]int) -> bool {
 	return result
 }
 
-between :: proc{between_int, between_2int}
+between :: proc {
+	between_int,
+	between_2int,
+}
 
 round_f32 :: proc(input: f32) -> int {
 	result := int(input + 0.5)
@@ -187,7 +202,10 @@ round_2f32 :: proc(input: [2]f32) -> [2]int {
 	return result
 }
 
-round :: proc{round_f32, round_2f32}
+round :: proc {
+	round_f32,
+	round_2f32,
+}
 
 safe_ratio1 :: proc(v1: f32, v2: f32) -> f32 {
 	result: f32 = 1
@@ -209,7 +227,10 @@ clamp_2int :: proc(input: [2]int, min: [2]int, max: [2]int) -> [2]int {
 	return result
 }
 
-clamp :: proc{clamp_int, clamp_2int}
+clamp :: proc {
+	clamp_int,
+	clamp_2int,
+}
 
 draw_pixel :: proc(pixels: ^[]u32, pixels_dim: [2]int, pos: [2]int, color: u32) {
 	if pos.x >= 0 && pos.x < pixels_dim.x && pos.y >= 0 && pos.y < pixels_dim.y {
