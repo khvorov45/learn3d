@@ -51,6 +51,8 @@ main :: proc() {
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
 	target_frame_duration := time.Duration(target_frame_ns)
 
+	rotation := [3]f32{0, 0, 0}
+
 	for window.is_running {
 
 		time_frame_start := time.now()
@@ -70,26 +72,43 @@ main :: proc() {
 			wnd.toggle_fullscreen(&window)
 		}
 
+		rotation += [3]f32{0.01, 0.01, 0.01}
+
 		//
 		// SECTION Render
 		//
 
 		rdr.clear(&pixels)
 
-		for face in mesh_faces {
-			for vertex_index in face {
+		for face, face_index in mesh_faces {
+
+			vertices_px: [3][2]int
+
+			for vertex_index, index in face {
 				vertex := mesh_vertices[vertex_index - 1]
-				vertex_projected := rdr.project(vertex, [3]f32{0, 0, -5})
+				vertex_rotated := rdr.rotate_x(vertex, rotation.x)
+				vertex_rotated = rdr.rotate_y(vertex_rotated, rotation.y)
+				vertex_rotated = rdr.rotate_z(vertex_rotated, rotation.z)
+				vertex_projected := rdr.project(vertex_rotated, [3]f32{0, 0, -2.5})
 				vertex_pixels := rdr.screen_world_to_pixels(vertex_projected, 500, pixels_dim)
+				vertices_px[index] = [2]int{int(vertex_pixels.x), int(vertex_pixels.y)}
 				rdr.draw_rect(
 					&pixels,
 					pixels_dim,
-					[2]int{int(vertex_pixels.x), int(vertex_pixels.y)},
+					vertices_px[index],
 					[2]int{4, 4},
 					0xFFFFFF00,
 				)
 			}
+
+			if face_index == 3 || true {
+				rdr.draw_line(&pixels, pixels_dim, vertices_px[0], vertices_px[1], 0xFFFF0000)
+				rdr.draw_line(&pixels, pixels_dim, vertices_px[0], vertices_px[2], 0xFFFF0000)
+				rdr.draw_line(&pixels, pixels_dim, vertices_px[1], vertices_px[2], 0xFFFF0000)
+			}
 		}
+
+
 
 		wnd.display_pixels(&window, pixels, pixels_dim)
 
