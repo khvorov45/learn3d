@@ -11,10 +11,13 @@
     "NOOWNERZORDER",
     "NOSIZE",
     "NOZORDER",
+    "println",
     "RALT",
     "SRCCOPY",
+    "strconv",
     "SYSKEYDOWN",
     "SYSKEYUP",
+    "tprintf",
     "VREDRAW",
     "wparam"
   ]

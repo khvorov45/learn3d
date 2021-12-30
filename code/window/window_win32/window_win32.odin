@@ -1,6 +1,8 @@
 package window_win32
 
 import "core:sys/win32"
+import "core:fmt"
+
 import shared ".."
 
 GlobalRunning := true
@@ -134,6 +136,24 @@ poll_input :: proc(window: ^Window, input: ^shared.Input) {
 					input.alt_r.ended_down = ended_down
 					input.alt_r.half_transition_count += 1
 				}
+			case 'W':
+				input.W.ended_down = ended_down
+				input.W.half_transition_count += 1
+			case 'A':
+				input.A.ended_down = ended_down
+				input.A.half_transition_count += 1
+			case 'S':
+				input.S.ended_down = ended_down
+				input.S.half_transition_count += 1
+			case 'D':
+				input.D.ended_down = ended_down
+				input.D.half_transition_count += 1
+			case 'Q':
+				input.Q.ended_down = ended_down
+				input.Q.half_transition_count += 1
+			case 'E':
+				input.E.ended_down = ended_down
+				input.E.half_transition_count += 1
 			}
 
 		case:
@@ -147,7 +167,7 @@ poll_input :: proc(window: ^Window, input: ^shared.Input) {
 	{
 		rect: win32.Rect
 		win32.get_client_rect(window.win32.hwnd, &rect)
-		window.dim.y = int(rect.top - rect.bottom)
+		window.dim.y = int(rect.bottom - rect.top)
 		window.dim.x = int(rect.right - rect.left)
 	}
 
@@ -162,8 +182,8 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 			window.win32.hdc,
 			0,
 			0,
-			i32(pixels_dim.x),
-			i32(pixels_dim.y),
+			i32(window.dim.x),
+			i32(window.dim.y),
 			0,
 			0,
 			i32(pixels_dim.x),
@@ -173,7 +193,10 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 			win32.DIB_RGB_COLORS,
 			win32.SRCCOPY,
 		)
-		assert(result == i32(pixels_dim.y))
+		assert(
+			result == i32(pixels_dim.y),
+			fmt.tprintf("expected {}, got {}\n", pixels_dim.y, result),
+		)
 	}
 
 }

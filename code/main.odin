@@ -3,6 +3,7 @@ package main
 USE_SDL :: false
 
 import "core:time"
+import "core:os"
 
 when USE_SDL {
 	import wnd "window/window_sdl"
@@ -11,13 +12,18 @@ when USE_SDL {
 }
 
 import rdr "renderer"
+import "obj"
 
 main :: proc() {
 
 	window := wnd.create_window("learn3d", 1280, 720)
 
 	mesh: rdr.Mesh
-	rdr.append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
+	{
+		mesh_file, ok := os.read_entire_file("assets/f22.obj")
+		assert(ok)
+		obj.read_mesh(mesh_file, &mesh)
+	}
 
 	pixels := make([]u32, window.dim.y * window.dim.x)
 	pixels_dim := window.dim
@@ -47,7 +53,24 @@ main :: proc() {
 			wnd.toggle_fullscreen(&window)
 		}
 
-		mesh.rotation += [3]f32{0.01, 0.01, 0.01}
+		if input.A.ended_down {
+			mesh.rotation += [3]f32{0.0, 0.1, 0.0}
+		}
+		if input.D.ended_down {
+			mesh.rotation -= [3]f32{0.0, 0.1, 0.0}
+		}
+		if input.W.ended_down {
+			mesh.rotation += [3]f32{0.1, 0.0, 0.0}
+		}
+		if input.S.ended_down {
+			mesh.rotation -= [3]f32{0.1, 0.0, 0.0}
+		}
+		if input.Q.ended_down {
+			mesh.rotation += [3]f32{0.0, 0.0, 0.1}
+		}
+		if input.E.ended_down {
+			mesh.rotation -= [3]f32{0.0, 0.0, 0.1}
+		}
 
 		//
 		// SECTION Render
@@ -67,13 +90,7 @@ main :: proc() {
 				vertex_projected := rdr.project(vertex_rotated, [3]f32{0, 0, -2.5})
 				vertex_pixels := rdr.screen_world_to_pixels(vertex_projected, 500, pixels_dim)
 				vertices_px[index] = [2]int{int(vertex_pixels.x), int(vertex_pixels.y)}
-				rdr.draw_rect(
-					&pixels,
-					pixels_dim,
-					vertices_px[index],
-					[2]int{4, 4},
-					0xFFFFFF00,
-				)
+				rdr.draw_rect(&pixels, pixels_dim, vertices_px[index], [2]int{4, 4}, 0xFFFFFF00)
 			}
 
 			if face_index == 3 || true {
@@ -82,7 +99,6 @@ main :: proc() {
 				rdr.draw_line(&pixels, pixels_dim, vertices_px[1], vertices_px[2], 0xFFFF0000)
 			}
 		}
-
 
 
 		wnd.display_pixels(&window, pixels, pixels_dim)

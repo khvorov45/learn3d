@@ -77,6 +77,24 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 			case .RALT:
 				input.alt_r.ended_down = ended_down
 				input.alt_r.half_transition_count += 1
+			case .W:
+				input.W.ended_down = ended_down
+				input.W.half_transition_count += 1
+			case .A:
+				input.A.ended_down = ended_down
+				input.A.half_transition_count += 1
+			case .S:
+				input.S.ended_down = ended_down
+				input.S.half_transition_count += 1
+			case .D:
+				input.D.ended_down = ended_down
+				input.D.half_transition_count += 1
+			case .Q:
+				input.Q.ended_down = ended_down
+				input.Q.half_transition_count += 1
+			case .E:
+				input.E.ended_down = ended_down
+				input.E.half_transition_count += 1
 			}
 		}
 	}

@@ -7,7 +7,7 @@ Window :: struct {
 }
 
 Input :: struct {
-	alt_r, enter: Key,
+	alt_r, enter, W, A, S, D, Q, E: Key,
 }
 
 Key :: struct {
