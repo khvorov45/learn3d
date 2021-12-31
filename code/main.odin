@@ -21,7 +21,7 @@ main :: proc() {
 
 	mesh: rdr.Mesh
 	{
-		mesh_file, ok := os.read_entire_file("assets/f22.obj")
+		mesh_file, ok := os.read_entire_file("assets/cube.obj")
 		assert(ok)
 		obj.read_mesh(mesh_file, &mesh)
 	}

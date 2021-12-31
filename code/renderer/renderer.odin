@@ -71,7 +71,7 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 
 render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 
-	for face in mesh.faces {
+	for face, face_index in mesh.faces {
 
 		vertices: [3][3]f32
 		for vertex_index, index in face {
@@ -89,14 +89,13 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 
 		if camera_normal_dot > 0 {
 
-			get_px :: proc(vertex: [3]f32, camera_pos: [3]f32, pixels_dim: [2]int) -> [2]int {
+			get_px :: proc(vertex: [3]f32, camera_pos: [3]f32, pixels_dim: [2]int) -> [2]f32 {
 				vertex_projected := project(vertex, camera_pos)
 				vertex_pixels := screen_world_to_pixels(vertex_projected, 500, pixels_dim)
-				px := [2]int{int(vertex_pixels.x), int(vertex_pixels.y)}
-				return px
+				return vertex_pixels
 			}
 
-			when true {
+			when false {
 				est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
 				est_center_px := get_px(est_center, camera_pos, pixels_dim)
 				//draw_rect(pixels, pixels_dim, est_center_px, [2]int{4, 4}, 0xFFFF00FF)
@@ -106,11 +105,13 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 				draw_line(pixels, pixels_dim, est_center_px, normal_tip_px, 0xFFFF00FF)
 			}
 
-			vertices_px: [3][2]int
+			vertices_px: [3][2]f32
 			for vertex, index in vertices {
 				vertices_px[index] = get_px(vertex, camera_pos, pixels_dim)
 				//draw_rect(pixels, pixels_dim, vertices_px[index], [2]int{4, 4}, 0xFFFFFF00)
 			}
+
+			draw_filled_triangle(pixels, pixels_dim, vertices_px, 0xFF00FF00)
 
 			draw_line(pixels, pixels_dim, vertices_px[0], vertices_px[1], 0xFFFF0000)
 			draw_line(pixels, pixels_dim, vertices_px[0], vertices_px[2], 0xFFFF0000)
@@ -120,6 +121,32 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 
 	}
 
+}
+
+draw_filled_triangle :: proc(
+	pixels: ^[]u32,
+	pixels_dim: [2]int,
+	vertices: [3][2]f32,
+	color: u32,
+) {
+	top, mid, bottom := vertices[0], vertices[1], vertices[2]
+	if top.y > mid.y {
+		top, mid = mid, top
+	}
+	if mid.y > bottom.y {
+		mid, bottom = bottom, mid
+	}
+	if top.y > mid.y {
+		top, mid = mid, top
+	}
+
+	midline_x := mid.x
+	if top.y != bottom.y {
+		midline_x = (mid.y - top.y) / (bottom.y - top.y) * (bottom.x - top.x) + top.x
+	}
+	midline := [2]f32{midline_x, mid.y}
+
+	draw_line(pixels, pixels_dim, mid, midline, color)
 }
 
 // Returns offset from screen center in world units
@@ -214,16 +241,16 @@ draw_rect :: proc(
 draw_line :: proc(
 	pixels: ^[]u32,
 	pixels_dim: [2]int,
-	start: [2]int,
-	end: [2]int,
+	start: [2]f32,
+	end: [2]f32,
 	color: u32,
 ) {
 	delta := end - start
 	run_length := max(abs(delta.x), abs(delta.y))
-	inc := [2]f32{f32(delta.x), f32(delta.y)} / f32(run_length)
+	inc := delta / run_length
 
-	cur := [2]f32{f32(start.x), f32(start.y)}
-	for _ in 0 ..< run_length {
+	cur := start
+	for _ in 0 ..< int(run_length) {
 		cur_rounded := round(cur)
 		if between(cur_rounded, [2]int{0, 0}, pixels_dim - 1) {
 			pixels[cur_rounded.y * pixels_dim.x + cur_rounded.x] = color
