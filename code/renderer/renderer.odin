@@ -1,6 +1,7 @@
 package renderer
 
 import "core:math"
+import "core:builtin"
 
 Mesh :: struct {
 	vertices: [dynamic][3]f32,
@@ -143,7 +144,7 @@ draw_rect :: proc(
 ) {
 	bottomright := topleft + dim
 
-	clamped_topleft := [2]int{max(topleft.x, 0), max(topleft.y, 0)}
+	clamped_topleft := clamp_2int(topleft, [2]int{0, 0}, pixels_dim)
 	clamped_bottomright := [2]int{
 		min(bottomright.x, pixels_dim.x),
 		min(bottomright.y, pixels_dim.y),
@@ -193,7 +194,7 @@ between :: proc {
 }
 
 round_f32 :: proc(input: f32) -> int {
-	result := int(input + 0.5)
+	result := int(math.round(input))
 	return result
 }
 
@@ -215,8 +216,8 @@ safe_ratio1 :: proc(v1: f32, v2: f32) -> f32 {
 	return result
 }
 
-clamp_int :: proc(input: int, from: int, to: int) -> int {
-	result := min(to, max(from, input))
+clamp_int :: proc(input: int, min: int, max: int) -> int {
+	result := builtin.clamp(input, min, max)
 	return result
 }
 

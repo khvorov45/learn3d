@@ -4,7 +4,7 @@ import "core:strings"
 import "core:strconv"
 import "core:fmt"
 
-import rdr "../renderer"
+import rdr "learn3d:renderer"
 
 read_mesh :: proc(file_data: []u8, mesh: ^rdr.Mesh) {
 	input_left := string(file_data)

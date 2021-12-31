@@ -3,7 +3,8 @@ package window_win32
 import "core:sys/win32"
 import "core:fmt"
 
-import shared ".."
+import shared "learn3d:window"
+import inp "learn3d:input"
 
 GlobalRunning := true
 
@@ -19,12 +20,6 @@ Win32Window :: struct {
 	pixel_info:         win32.Bitmap_Info,
 	previous_placement: win32.Window_Placement,
 }
-
-Input :: shared.Input
-
-clear_half_transitions :: shared.clear_half_transitions
-
-was_pressed :: shared.was_pressed
 
 create_window :: proc(title: string, width: int, height: int) -> Window {
 
@@ -117,7 +112,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	return result
 }
 
-poll_input :: proc(window: ^Window, input: ^shared.Input) {
+poll_input :: proc(window: ^Window, input: ^inp.Input) {
 
 	hwnd := window.win32.hwnd
 

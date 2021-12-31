@@ -1,7 +1,9 @@
 package window_sdl
 
 import sdl "vendor:sdl2"
-import shared ".."
+
+import shared "learn3d:window"
+import inp "learn3d:input"
 
 Window :: struct {
 	using shared: shared.Window,
@@ -14,12 +16,6 @@ SdlWindow :: struct {
 	texture:     ^sdl.Texture,
 	texture_dim: [2]int,
 }
-
-Input :: shared.Input
-
-clear_half_transitions :: shared.clear_half_transitions
-
-was_pressed :: shared.was_pressed
 
 create_window :: proc(title: string, width: int, height: int) -> Window {
 
@@ -61,7 +57,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	return result
 }
 
-poll_input :: proc(window: ^Window, input: ^Input) {
+poll_input :: proc(window: ^Window, input: ^inp.Input) {
 
 	event: sdl.Event
 	for sdl.PollEvent(&event) != 0 {

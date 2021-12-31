@@ -1,1 +1,1 @@
-odin build code -debug -out:build/learn3d.exe -subsystem:windows
+odin build code -debug -out:build/learn3d.exe -subsystem:windows -collection:learn3d=code

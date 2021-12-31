@@ -11,8 +11,9 @@ when USE_SDL {
 	when ODIN_OS == "windows" do import wnd "window/window_win32"
 }
 
-import rdr "renderer"
-import "obj"
+import rdr "learn3d:renderer"
+import "learn3d:obj"
+import inp "learn3d:input"
 
 main :: proc() {
 
@@ -28,7 +29,7 @@ main :: proc() {
 	pixels := make([]u32, window.dim.y * window.dim.x)
 	pixels_dim := window.dim
 
-	input: wnd.Input
+	input: inp.Input
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
@@ -42,14 +43,14 @@ main :: proc() {
 		// SECTION Input
 		//
 
-		wnd.clear_half_transitions(&input)
+		inp.clear_half_transitions(&input)
 		wnd.poll_input(&window, &input)
 
 		//
 		// SECTION Update
 		//
 
-		if input.alt_r.ended_down && wnd.was_pressed(input.enter) {
+		if input.alt_r.ended_down && inp.was_pressed(input.enter) {
 			wnd.toggle_fullscreen(&window)
 		}
 
