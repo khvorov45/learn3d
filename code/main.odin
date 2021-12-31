@@ -79,30 +79,13 @@ main :: proc() {
 
 		rdr.clear(&pixels)
 
-		for face, face_index in mesh.faces {
-
-			vertices_px: [3][2]int
-
-			for vertex_index, index in face {
-
-				vertex := mesh.vertices[vertex_index]
-
-				vertex_rotated := rdr.rotate_axis_aligned(vertex, mesh.rotation)
-
-				vertex_projected := rdr.project(vertex_rotated, [3]f32{0, 0, -2.5})
-
-				vertex_pixels := rdr.screen_world_to_pixels(vertex_projected, 500, pixels_dim)
-				vertices_px[index] = [2]int{int(vertex_pixels.x), int(vertex_pixels.y)}
-
-				rdr.draw_rect(&pixels, pixels_dim, vertices_px[index], [2]int{4, 4}, 0xFFFFFF00)
-			}
-
-			rdr.draw_line(&pixels, pixels_dim, vertices_px[0], vertices_px[1], 0xFFFF0000)
-			rdr.draw_line(&pixels, pixels_dim, vertices_px[0], vertices_px[2], 0xFFFF0000)
-			rdr.draw_line(&pixels, pixels_dim, vertices_px[1], vertices_px[2], 0xFFFF0000)
-		}
+		rdr.render_mesh(&pixels, pixels_dim, mesh)
 
 		wnd.display_pixels(&window, pixels, pixels_dim)
+
+		//
+		// SECTION Frame time
+		//
 
 		work_done_duration := time.since(time_frame_start)
 		to_sleep_duration := target_frame_duration - work_done_duration

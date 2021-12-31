@@ -1,6 +1,7 @@
 package renderer
 
 import "core:math"
+import "core:math/linalg"
 import "core:builtin"
 
 Mesh :: struct {
@@ -66,6 +67,59 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 
 	append(&mesh.faces, back1)
 	append(&mesh.faces, back2)
+}
+
+render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
+
+	for face in mesh.faces {
+
+		vertices: [3][3]f32
+		for vertex_index, index in face {
+			vertices[index] = rotate_axis_aligned(mesh.vertices[vertex_index], mesh.rotation)
+		}
+
+		ab := vertices[1] - vertices[0]
+		ac := vertices[2] - vertices[0]
+		normal := linalg.cross(ab, ac)
+
+		camera_pos := [3]f32{0, 0, -4.5}
+		camera_ray := camera_pos - vertices[0]
+
+		camera_normal_dot := linalg.dot(normal, camera_ray)
+
+		if camera_normal_dot > 0 {
+
+			get_px :: proc(vertex: [3]f32, camera_pos: [3]f32, pixels_dim: [2]int) -> [2]int {
+				vertex_projected := project(vertex, camera_pos)
+				vertex_pixels := screen_world_to_pixels(vertex_projected, 500, pixels_dim)
+				px := [2]int{int(vertex_pixels.x), int(vertex_pixels.y)}
+				return px
+			}
+
+			when true {
+				est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
+				est_center_px := get_px(est_center, camera_pos, pixels_dim)
+				//draw_rect(pixels, pixels_dim, est_center_px, [2]int{4, 4}, 0xFFFF00FF)
+
+				normal_tip := 0.1 * linalg.normalize(normal) + est_center
+				normal_tip_px := get_px(normal_tip, camera_pos, pixels_dim)
+				draw_line(pixels, pixels_dim, est_center_px, normal_tip_px, 0xFFFF00FF)
+			}
+
+			vertices_px: [3][2]int
+			for vertex, index in vertices {
+				vertices_px[index] = get_px(vertex, camera_pos, pixels_dim)
+				//draw_rect(pixels, pixels_dim, vertices_px[index], [2]int{4, 4}, 0xFFFFFF00)
+			}
+
+			draw_line(pixels, pixels_dim, vertices_px[0], vertices_px[1], 0xFFFF0000)
+			draw_line(pixels, pixels_dim, vertices_px[0], vertices_px[2], 0xFFFF0000)
+			draw_line(pixels, pixels_dim, vertices_px[1], vertices_px[2], 0xFFFF0000)
+
+		}
+
+	}
+
 }
 
 // Returns offset from screen center in world units

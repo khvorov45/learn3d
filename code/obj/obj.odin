@@ -2,7 +2,6 @@ package obj
 
 import "core:strings"
 import "core:strconv"
-import "core:fmt"
 
 import rdr "learn3d:renderer"
 
@@ -45,7 +44,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^rdr.Mesh) {
 					num_string = input_left[:one_past_end]
 					input_left = input_left[one_past_end + 1:]
 				} else {
-					num_string := input_left
+					num_string = input_left
 					input_left = input_left[len(input_left):]
 				}
 				num, ok := strconv.parse_int(num_string)
