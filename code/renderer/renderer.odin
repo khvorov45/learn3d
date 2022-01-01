@@ -82,7 +82,7 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 		ac := vertices[2] - vertices[0]
 		normal := linalg.cross(ab, ac)
 
-		camera_pos := [3]f32{0, 0, -4.5}
+		camera_pos := [3]f32{0, 0, -2.5}
 		camera_ray := camera_pos - vertices[0]
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
@@ -146,7 +146,57 @@ draw_filled_triangle :: proc(
 	}
 	midline := [2]f32{midline_x, mid.y}
 
-	draw_line(pixels, pixels_dim, mid, midline, color)
+	// NOTE(sen) Midline
+	{
+		start := round(mid.x)
+		end := round(midline.x)
+		if start > end {
+			start, end = end, start
+		}
+		for col in start .. end {
+			draw_pixel(pixels, pixels_dim, [2]int{col, round(mid.y)}, color)
+		}
+	}
+
+	// NOTE(sen) Flat bottom
+	{
+		rise := mid.y - top.y
+		s1 := (mid.x - top.x) / rise
+		s2 := (midline.x - top.x) / rise
+		if s1 > s2 {
+			s1, s2 = s2, s1
+		}
+		x1_cur := top.x
+		x2_cur := top.x
+		for row in round(top.y) ..< round(mid.y) {
+			for col in round(x1_cur) .. round(x2_cur) {
+				draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+			}
+			x1_cur += s1
+			x2_cur += s2
+		}
+	}
+
+	// NOTE(sen) Flat top
+	{
+		rise := bottom.y - mid.y
+		s1 := (mid.x - bottom.x) / rise
+		s2 := (midline.x - bottom.x) / rise
+		if s1 > s2 {
+			s1, s2 = s2, s1
+		}
+		x1_cur := bottom.x
+		x2_cur := bottom.x
+		for row := round(bottom.y); row > round(mid.y); row -= 1 {
+			for col in round(x1_cur) .. round(x2_cur) {
+				draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+			}
+			x1_cur += s1
+			x2_cur += s2
+		}
+	}
+
+	//draw_line(pixels, pixels_dim, mid, midline, color)
 }
 
 // Returns offset from screen center in world units
@@ -252,9 +302,7 @@ draw_line :: proc(
 	cur := start
 	for _ in 0 ..< int(run_length) {
 		cur_rounded := round(cur)
-		if between(cur_rounded, [2]int{0, 0}, pixels_dim - 1) {
-			pixels[cur_rounded.y * pixels_dim.x + cur_rounded.x] = color
-		}
+		draw_pixel(pixels, pixels_dim, cur_rounded, color)
 		cur += inc
 	}
 }
