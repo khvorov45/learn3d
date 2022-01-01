@@ -5,9 +5,16 @@ import "core:math/linalg"
 import "core:builtin"
 
 Renderer :: struct {
-	pixels:     []u32,
-	pixels_dim: [2]int,
-	options:    bit_set[DisplayOption],
+	pixels:          []u32,
+	pixels_dim:      [2]int,
+	options:         bit_set[DisplayOption],
+	faces_to_render: [dynamic]FaceToRender,
+}
+
+FaceToRender :: struct {
+	avg_z:    f32,
+	vertices: [3][3]f32,
+	color:    u32,
 }
 
 DisplayOption :: enum {
@@ -107,40 +114,61 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
-	for face, face_index in mesh.faces {
+	builtin.clear(&renderer.faces_to_render)
 
+	for face in mesh.faces {
+
+		sum_z: f32 = 0
 		vertices: [3][3]f32
 		for vertex_index, index in face.indices {
-			vertices[index] = rotate_axis_aligned(mesh.vertices[vertex_index], mesh.rotation)
+			camera_pos := [3]f32{0, 0, -3.5}
+			vertex := rotate_axis_aligned(mesh.vertices[vertex_index], mesh.rotation) - camera_pos
+			vertices[index] = vertex
+			sum_z += vertex.z
+		}
+		avg_z := sum_z / 3
+		face_to_render := FaceToRender{avg_z, vertices, face.color}
+		append(&renderer.faces_to_render, face_to_render)
+
+		// NOTE(sen) Keep the faces sorted
+		for cur_index := len(renderer.faces_to_render) - 1; cur_index >= 1; cur_index -= 1 {
+			this := renderer.faces_to_render[cur_index]
+			prev := renderer.faces_to_render[cur_index - 1]
+			if this.avg_z > prev.avg_z {
+				renderer.faces_to_render[cur_index], renderer.faces_to_render[cur_index - 1] = prev, this
+			}
 		}
 
-		ab := vertices[1] - vertices[0]
-		ac := vertices[2] - vertices[0]
+	}
+
+	for face_to_render in renderer.faces_to_render {
+
+		ab := face_to_render.vertices[1] - face_to_render.vertices[0]
+		ac := face_to_render.vertices[2] - face_to_render.vertices[0]
 		normal := linalg.cross(ab, ac)
 
-		camera_pos := [3]f32{0, 0, -3.5}
-		camera_ray := camera_pos - vertices[0]
+		camera_ray := -face_to_render.vertices[0]
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
 
 		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
-			get_px :: proc(vertex: [3]f32, camera_pos: [3]f32, pixels_dim: [2]int) -> [2]f32 {
-				vertex_projected := project(vertex, camera_pos)
+			get_px :: proc(vertex: [3]f32, pixels_dim: [2]int) -> [2]f32 {
+				vertex_projected := project(vertex)
 				vertex_pixels := screen_world_to_pixels(vertex_projected, 500, pixels_dim)
 				return vertex_pixels
 			}
 
 			vertices_px: [3][2]f32
-			for vertex, index in vertices {
-				vertices_px[index] = get_px(vertex, camera_pos, renderer.pixels_dim)
+			for vertex, index in face_to_render.vertices {
+				vertices_px[index] = get_px(vertex, renderer.pixels_dim)
 			}
 
 			if .FilledTriangles in renderer.options {
-				draw_filled_triangle(renderer, vertices_px, face.color)
-				draw_line(renderer, vertices_px[0], vertices_px[1], face.color)
-				draw_line(renderer, vertices_px[0], vertices_px[2], face.color)
-				draw_line(renderer, vertices_px[1], vertices_px[2], face.color)
+				draw_filled_triangle(renderer, vertices_px, face_to_render.color)
+				draw_line(renderer, vertices_px[0], vertices_px[1], face_to_render.color)
+				draw_line(renderer, vertices_px[0], vertices_px[2], face_to_render.color)
+				draw_line(renderer, vertices_px[1], vertices_px[2], face_to_render.color)
 			}
 
 			if .Wireframe in renderer.options {
@@ -158,15 +186,16 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 
-			est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
-			est_center_px := get_px(est_center, camera_pos, renderer.pixels_dim)
+			est_center := (face_to_render.vertices[0] + face_to_render.vertices[1] + face_to_render.vertices[2]) /
+                 3
+			est_center_px := get_px(est_center, renderer.pixels_dim)
 
 			if .Midpoints in renderer.options {
 				draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
 			}
 
 			normal_tip := 0.1 * linalg.normalize(normal) + est_center
-			normal_tip_px := get_px(normal_tip, camera_pos, renderer.pixels_dim)
+			normal_tip_px := get_px(normal_tip, renderer.pixels_dim)
 
 			if .Normals in renderer.options {
 				draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
@@ -253,9 +282,7 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 }
 
 // Returns offset from screen center in world units
-project :: proc(point: [3]f32, camera: [3]f32) -> [2]f32 {
-
-	point_camera_space := point - camera
+project :: proc(point_camera_space: [3]f32) -> [2]f32 {
 
 	point_screen := point_camera_space.xy
 	point_screen /= point_camera_space.z
