@@ -166,9 +166,6 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 			if .FilledTriangles in renderer.options {
 				draw_filled_triangle(renderer, vertices_px, face_to_render.color)
-				draw_line(renderer, vertices_px[0], vertices_px[1], face_to_render.color)
-				draw_line(renderer, vertices_px[0], vertices_px[2], face_to_render.color)
-				draw_line(renderer, vertices_px[1], vertices_px[2], face_to_render.color)
 			}
 
 			if .Wireframe in renderer.options {
@@ -262,19 +259,21 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 	{
 		rise := bottom.y - mid.y
 		if rise != 0 {
+			// NOTE(sen) Step from the top to prevent fp-error caused alignment problems
 			s1 := (mid.x - bottom.x) / rise
 			s2 := (midline.x - bottom.x) / rise
-			if s1 > s2 {
+			x1_cur := mid.x
+			x2_cur := midline.x
+			if x1_cur > x2_cur {
+				x1_cur, x2_cur = x2_cur, x1_cur
 				s1, s2 = s2, s1
 			}
-			x1_cur := bottom.x
-			x2_cur := bottom.x
-			for row := round(bottom.y); row > round(mid.y); row -= 1 {
+			for row in round(mid.y) .. round(bottom.y) {
 				for col in round(x1_cur) .. round(x2_cur) {
 					draw_pixel(renderer, [2]int{col, row}, color)
 				}
-				x1_cur += s1
-				x2_cur += s2
+				x1_cur -= s1
+				x2_cur -= s2
 			}
 		}
 	}
