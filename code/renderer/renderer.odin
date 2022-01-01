@@ -4,10 +4,41 @@ import "core:math"
 import "core:math/linalg"
 import "core:builtin"
 
+Renderer :: struct {
+	pixels:     []u32,
+	pixels_dim: [2]int,
+	options:    bit_set[DisplayOption],
+}
+
+DisplayOption :: enum {
+	FilledTriangles,
+	Wireframe,
+	Vertices,
+	Normals,
+	Midpoints,
+	BackfaceCull,
+}
+
 Mesh :: struct {
 	vertices: [dynamic][3]f32,
 	faces:    [dynamic][3]int,
 	rotation: [3]f32,
+}
+
+create_renderer :: proc(width, height: int) -> Renderer {
+	renderer: Renderer
+	renderer.pixels = make([]u32, width * height)
+	renderer.pixels_dim = [2]int{width, height}
+	renderer.options = {.BackfaceCull, .FilledTriangles}
+	return renderer
+}
+
+toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
+	if option in renderer.options {
+		renderer.options ~= {option}
+	} else {
+		renderer.options |= {option}
+	}
 }
 
 append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
@@ -69,7 +100,7 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	append(&mesh.faces, back2)
 }
 
-render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
+render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 	for face, face_index in mesh.faces {
 
@@ -87,7 +118,7 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
 
-		if camera_normal_dot > 0 {
+		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
 			get_px :: proc(vertex: [3]f32, camera_pos: [3]f32, pixels_dim: [2]int) -> [2]f32 {
 				vertex_projected := project(vertex, camera_pos)
@@ -95,27 +126,43 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 				return vertex_pixels
 			}
 
-			when false {
-				est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
-				est_center_px := get_px(est_center, camera_pos, pixels_dim)
-				//draw_rect(pixels, pixels_dim, est_center_px, [2]int{4, 4}, 0xFFFF00FF)
-
-				normal_tip := 0.1 * linalg.normalize(normal) + est_center
-				normal_tip_px := get_px(normal_tip, camera_pos, pixels_dim)
-				draw_line(pixels, pixels_dim, est_center_px, normal_tip_px, 0xFFFF00FF)
-			}
-
 			vertices_px: [3][2]f32
 			for vertex, index in vertices {
-				vertices_px[index] = get_px(vertex, camera_pos, pixels_dim)
-				//draw_rect(pixels, pixels_dim, vertices_px[index], [2]int{4, 4}, 0xFFFFFF00)
+				vertices_px[index] = get_px(vertex, camera_pos, renderer.pixels_dim)
 			}
 
-			draw_filled_triangle(pixels, pixels_dim, vertices_px, 0xFF00FF00)
+			if .FilledTriangles in renderer.options {
+				draw_filled_triangle(renderer, vertices_px, 0xFF333333)
+			}
 
-			draw_line(pixels, pixels_dim, vertices_px[0], vertices_px[1], 0xFFFF0000)
-			draw_line(pixels, pixels_dim, vertices_px[0], vertices_px[2], 0xFFFF0000)
-			draw_line(pixels, pixels_dim, vertices_px[1], vertices_px[2], 0xFFFF0000)
+			if .Wireframe in renderer.options {
+				draw_line(renderer, vertices_px[0], vertices_px[1], 0xFFFF0000)
+				draw_line(renderer, vertices_px[0], vertices_px[2], 0xFFFF0000)
+				draw_line(renderer, vertices_px[1], vertices_px[2], 0xFFFF0000)
+			}
+
+			if .Vertices in renderer.options {
+				for vertex in vertices_px {
+					dim := [2]f32{5, 5}
+					topleft := vertex - dim * 0.5
+					draw_rect(renderer, topleft, dim, 0xFFFFFF00)
+				}
+			}
+
+
+			est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
+			est_center_px := get_px(est_center, camera_pos, renderer.pixels_dim)
+
+			if .Midpoints in renderer.options {
+				draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
+			}
+
+			normal_tip := 0.1 * linalg.normalize(normal) + est_center
+			normal_tip_px := get_px(normal_tip, camera_pos, renderer.pixels_dim)
+
+			if .Normals in renderer.options {
+				draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+			}
 
 		}
 
@@ -123,12 +170,7 @@ render_mesh :: proc(pixels: ^[]u32, pixels_dim: [2]int, mesh: Mesh) {
 
 }
 
-draw_filled_triangle :: proc(
-	pixels: ^[]u32,
-	pixels_dim: [2]int,
-	vertices: [3][2]f32,
-	color: u32,
-) {
+draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u32) {
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
 	if top.y > mid.y {
 		top, mid = mid, top
@@ -154,7 +196,7 @@ draw_filled_triangle :: proc(
 			start, end = end, start
 		}
 		for col in start .. end {
-			draw_pixel(pixels, pixels_dim, [2]int{col, round(mid.y)}, color)
+			draw_pixel(renderer, [2]int{col, round(mid.y)}, color)
 		}
 	}
 
@@ -171,7 +213,7 @@ draw_filled_triangle :: proc(
 			x2_cur := top.x
 			for row in round(top.y) ..< round(mid.y) {
 				for col in round(x1_cur) .. round(x2_cur) {
-					draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+					draw_pixel(renderer, [2]int{col, row}, color)
 				}
 				x1_cur += s1
 				x2_cur += s2
@@ -192,7 +234,7 @@ draw_filled_triangle :: proc(
 			x2_cur := bottom.x
 			for row := round(bottom.y); row > round(mid.y); row -= 1 {
 				for col in round(x1_cur) .. round(x2_cur) {
-					draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+					draw_pixel(renderer, [2]int{col, row}, color)
 				}
 				x1_cur += s1
 				x2_cur += s2
@@ -263,41 +305,34 @@ rotate_axis_aligned :: proc(vec: [3]f32, angles: [3]f32) -> [3]f32 {
 	return result
 }
 
-clear :: proc(pixels: ^[]u32) {
-	for pixel in pixels {
+clear :: proc(renderer: ^Renderer) {
+	for pixel in &renderer.pixels {
 		pixel = 0
 	}
 }
 
-draw_rect :: proc(
-	pixels: ^[]u32,
-	pixels_dim: [2]int,
-	topleft: [2]int,
-	dim: [2]int,
-	color: u32,
-) {
+draw_rect :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {
 	bottomright := topleft + dim
 
-	clamped_topleft := clamp_2int(topleft, [2]int{0, 0}, pixels_dim)
-	clamped_bottomright := [2]int{
-		min(bottomright.x, pixels_dim.x),
-		min(bottomright.y, pixels_dim.y),
-	}
+	clamped_topleft := clamp_2f32(
+		topleft,
+		[2]f32{0, 0},
+		linalg.to_f32(renderer.pixels_dim - 1),
+	)
+	clamped_bottomright := clamp_2f32(
+		bottomright,
+		[2]f32{0, 0},
+		linalg.to_f32(renderer.pixels_dim),
+	)
 
-	for row in clamped_topleft.y ..< clamped_bottomright.y {
-		for col in clamped_topleft.x ..< clamped_bottomright.x {
-			pixels[row * pixels_dim.x + col] = color
+	for row in round(clamped_topleft.y) ..< round(clamped_bottomright.y) {
+		for col in round(clamped_topleft.x) ..< round(clamped_bottomright.x) {
+			renderer.pixels[row * renderer.pixels_dim.x + col] = color
 		}
 	}
 }
 
-draw_line :: proc(
-	pixels: ^[]u32,
-	pixels_dim: [2]int,
-	start: [2]f32,
-	end: [2]f32,
-	color: u32,
-) {
+draw_line :: proc(renderer: ^Renderer, start: [2]f32, end: [2]f32, color: u32) {
 	delta := end - start
 	run_length := max(abs(delta.x), abs(delta.y))
 	inc := delta / run_length
@@ -305,7 +340,7 @@ draw_line :: proc(
 	cur := start
 	for _ in 0 ..< int(run_length) {
 		cur_rounded := round(cur)
-		draw_pixel(pixels, pixels_dim, cur_rounded, color)
+		draw_pixel(renderer, cur_rounded, color)
 		cur += inc
 	}
 }
@@ -353,6 +388,11 @@ clamp_int :: proc(input: int, min: int, max: int) -> int {
 	return result
 }
 
+clamp_f32 :: proc(input: f32, min: f32, max: f32) -> f32 {
+	result := builtin.clamp(input, min, max)
+	return result
+}
+
 clamp_2int :: proc(input: [2]int, min: [2]int, max: [2]int) -> [2]int {
 	result := input
 	result.x = clamp_int(input.x, min.x, max.x)
@@ -360,14 +400,23 @@ clamp_2int :: proc(input: [2]int, min: [2]int, max: [2]int) -> [2]int {
 	return result
 }
 
+clamp_2f32 :: proc(input: [2]f32, min: [2]f32, max: [2]f32) -> [2]f32 {
+	result := input
+	result.x = clamp_f32(input.x, min.x, max.x)
+	result.y = clamp_f32(input.y, min.y, max.y)
+	return result
+}
+
 clamp :: proc {
 	clamp_int,
 	clamp_2int,
+	clamp_f32,
+	clamp_2f32,
 }
 
-draw_pixel :: proc(pixels: ^[]u32, pixels_dim: [2]int, pos: [2]int, color: u32) {
-	if pos.x >= 0 && pos.x < pixels_dim.x && pos.y >= 0 && pos.y < pixels_dim.y {
-		pixels[pos.y * pixels_dim.x + pos.x] = color
+draw_pixel :: proc(renderer: ^Renderer, pos: [2]int, color: u32) {
+	if pos.x >= 0 && pos.x < renderer.pixels_dim.x && pos.y >= 0 && pos.y < renderer.pixels_dim.y {
+		renderer.pixels[pos.y * renderer.pixels_dim.x + pos.x] = color
 	}
 }
 

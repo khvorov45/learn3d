@@ -149,6 +149,36 @@ poll_input :: proc(window: ^Window, input: ^inp.Input) {
 			case 'E':
 				input.E.ended_down = ended_down
 				input.E.half_transition_count += 1
+			case '1':
+				input.digit1.ended_down = ended_down
+				input.digit1.half_transition_count += 1
+			case '2':
+				input.digit2.ended_down = ended_down
+				input.digit2.half_transition_count += 1
+			case '3':
+				input.digit3.ended_down = ended_down
+				input.digit3.half_transition_count += 1
+			case '4':
+				input.digit4.ended_down = ended_down
+				input.digit4.half_transition_count += 1
+			case '5':
+				input.digit5.ended_down = ended_down
+				input.digit5.half_transition_count += 1
+			case '6':
+				input.digit6.ended_down = ended_down
+				input.digit6.half_transition_count += 1
+			case '7':
+				input.digit7.ended_down = ended_down
+				input.digit7.half_transition_count += 1
+			case '8':
+				input.digit8.ended_down = ended_down
+				input.digit8.half_transition_count += 1
+			case '9':
+				input.digit9.ended_down = ended_down
+				input.digit9.half_transition_count += 1
+			case '0':
+				input.digit0.ended_down = ended_down
+				input.digit0.half_transition_count += 1
 			}
 
 		case:

@@ -91,6 +91,36 @@ poll_input :: proc(window: ^Window, input: ^inp.Input) {
 			case .E:
 				input.E.ended_down = ended_down
 				input.E.half_transition_count += 1
+			case .NUM1:
+				input.digit1.ended_down = ended_down
+				input.digit1.half_transition_count += 1
+			case .NUM2:
+				input.digit2.ended_down = ended_down
+				input.digit2.half_transition_count += 1
+			case .NUM3:
+				input.digit3.ended_down = ended_down
+				input.digit3.half_transition_count += 1
+			case .NUM4:
+				input.digit4.ended_down = ended_down
+				input.digit4.half_transition_count += 1
+			case .NUM5:
+				input.digit5.ended_down = ended_down
+				input.digit5.half_transition_count += 1
+			case .NUM6:
+				input.digit6.ended_down = ended_down
+				input.digit6.half_transition_count += 1
+			case .NUM7:
+				input.digit7.ended_down = ended_down
+				input.digit7.half_transition_count += 1
+			case .NUM8:
+				input.digit8.ended_down = ended_down
+				input.digit8.half_transition_count += 1
+			case .NUM9:
+				input.digit9.ended_down = ended_down
+				input.digit9.half_transition_count += 1
+			case .NUM0:
+				input.digit0.ended_down = ended_down
+				input.digit0.half_transition_count += 1
 			}
 		}
 	}

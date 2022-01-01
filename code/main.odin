@@ -26,8 +26,7 @@ main :: proc() {
 		obj.read_mesh(mesh_file, &mesh)
 	}
 
-	pixels := make([]u32, window.dim.y * window.dim.x)
-	pixels_dim := window.dim
+	renderer := rdr.create_renderer(window.dim.x, window.dim.y)
 
 	input: inp.Input
 
@@ -73,15 +72,34 @@ main :: proc() {
 			mesh.rotation -= [3]f32{0.0, 0.0, 0.1}
 		}
 
+		if inp.was_pressed(input.digit1) {
+			rdr.toggle_option(&renderer, .FilledTriangles)
+		}
+		if inp.was_pressed(input.digit2) {
+			rdr.toggle_option(&renderer, .Wireframe)
+		}
+		if inp.was_pressed(input.digit3) {
+			rdr.toggle_option(&renderer, .Vertices)
+		}
+		if inp.was_pressed(input.digit4) {
+			rdr.toggle_option(&renderer, .Normals)
+		}
+		if inp.was_pressed(input.digit5) {
+			rdr.toggle_option(&renderer, .Midpoints)
+		}
+		if inp.was_pressed(input.digit6) {
+			rdr.toggle_option(&renderer, .BackfaceCull)
+		}
+
 		//
 		// SECTION Render
 		//
 
-		rdr.clear(&pixels)
+		rdr.clear(&renderer)
 
-		rdr.render_mesh(&pixels, pixels_dim, mesh)
+		rdr.render_mesh(&renderer, mesh)
 
-		wnd.display_pixels(&window, pixels, pixels_dim)
+		wnd.display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 
 		//
 		// SECTION Frame time
