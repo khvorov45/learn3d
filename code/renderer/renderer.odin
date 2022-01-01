@@ -21,8 +21,13 @@ DisplayOption :: enum {
 
 Mesh :: struct {
 	vertices: [dynamic][3]f32,
-	faces:    [dynamic][3]int,
+	faces:    [dynamic]Face,
 	rotation: [3]f32,
+}
+
+Face :: struct {
+	indices: [3]int,
+	color:   u32,
 }
 
 create_renderer :: proc(width, height: int) -> Renderer {
@@ -69,8 +74,8 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	bottom1 := [3]int{2, 3, 6} + first_vertex
 	bottom2 := [3]int{3, 7, 6} + first_vertex
 
-	back1 := [3]int{4, 5, 6} + first_vertex
-	back2 := [3]int{6, 5, 7} + first_vertex
+	back1 := [3]int{5, 4, 6} + first_vertex
+	back2 := [3]int{5, 6, 7} + first_vertex
 
 	append(&mesh.vertices, v0)
 	append(&mesh.vertices, v1)
@@ -81,23 +86,23 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	append(&mesh.vertices, v6)
 	append(&mesh.vertices, v7)
 
-	append(&mesh.faces, front1)
-	append(&mesh.faces, front2)
+	append(&mesh.faces, Face{front1, 0xFFFF0000})
+	append(&mesh.faces, Face{front2, 0xFFFF0000})
 
-	append(&mesh.faces, left1)
-	append(&mesh.faces, left2)
+	append(&mesh.faces, Face{left1, 0xFF00FF00})
+	append(&mesh.faces, Face{left2, 0xFF00FF00})
 
-	append(&mesh.faces, right1)
-	append(&mesh.faces, right2)
+	append(&mesh.faces, Face{right1, 0xFF0000FF})
+	append(&mesh.faces, Face{right2, 0xFF0000FF})
 
-	append(&mesh.faces, top1)
-	append(&mesh.faces, top2)
+	append(&mesh.faces, Face{top1, 0xFFFFFF00})
+	append(&mesh.faces, Face{top2, 0xFFFFFF00})
 
-	append(&mesh.faces, bottom1)
-	append(&mesh.faces, bottom2)
+	append(&mesh.faces, Face{bottom1, 0xFFFF00FF})
+	append(&mesh.faces, Face{bottom2, 0xFFFF00FF})
 
-	append(&mesh.faces, back1)
-	append(&mesh.faces, back2)
+	append(&mesh.faces, Face{back1, 0xFF00FFFF})
+	append(&mesh.faces, Face{back2, 0xFF00FFFF})
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
@@ -105,7 +110,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 	for face, face_index in mesh.faces {
 
 		vertices: [3][3]f32
-		for vertex_index, index in face {
+		for vertex_index, index in face.indices {
 			vertices[index] = rotate_axis_aligned(mesh.vertices[vertex_index], mesh.rotation)
 		}
 
@@ -113,7 +118,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 		ac := vertices[2] - vertices[0]
 		normal := linalg.cross(ab, ac)
 
-		camera_pos := [3]f32{0, 0, -2.5}
+		camera_pos := [3]f32{0, 0, -3.5}
 		camera_ray := camera_pos - vertices[0]
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
@@ -132,7 +137,10 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			if .FilledTriangles in renderer.options {
-				draw_filled_triangle(renderer, vertices_px, 0xFF333333)
+				draw_filled_triangle(renderer, vertices_px, face.color)
+				draw_line(renderer, vertices_px[0], vertices_px[1], face.color)
+				draw_line(renderer, vertices_px[0], vertices_px[2], face.color)
+				draw_line(renderer, vertices_px[1], vertices_px[2], face.color)
 			}
 
 			if .Wireframe in renderer.options {

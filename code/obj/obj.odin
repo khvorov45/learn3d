@@ -69,11 +69,12 @@ read_mesh :: proc(file_data: []u8, mesh: ^rdr.Mesh) {
 				vertex.z, line = parse_f32(line, len(line))
 				append(&mesh.vertices, vertex)
 			case "f ":
-				face: [3]int
-				face.x, line = read_face_entry(line, strings.index_rune(line, ' '))
-				face.y, line = read_face_entry(line, strings.index_rune(line, ' '))
-				face.z, line = read_face_entry(line, len(line))
-				face -= 1
+				face: rdr.Face
+				face.indices.x, line = read_face_entry(line, strings.index_rune(line, ' '))
+				face.indices.y, line = read_face_entry(line, strings.index_rune(line, ' '))
+				face.indices.z, line = read_face_entry(line, len(line))
+				face.indices -= 1
+				face.color = 0xFF333333
 				append(&mesh.faces, face)
 			}
 		}

@@ -21,9 +21,10 @@ main :: proc() {
 
 	mesh: rdr.Mesh
 	{
-		mesh_file, ok := os.read_entire_file("assets/cube.obj")
+		mesh_file, ok := os.read_entire_file("assets/f22.obj")
 		assert(ok)
-		obj.read_mesh(mesh_file, &mesh)
+		//obj.read_mesh(mesh_file, &mesh)
+		rdr.append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
 	}
 
 	renderer := rdr.create_renderer(window.dim.x, window.dim.y)
