@@ -161,42 +161,45 @@ draw_filled_triangle :: proc(
 	// NOTE(sen) Flat bottom
 	{
 		rise := mid.y - top.y
-		s1 := (mid.x - top.x) / rise
-		s2 := (midline.x - top.x) / rise
-		if s1 > s2 {
-			s1, s2 = s2, s1
-		}
-		x1_cur := top.x
-		x2_cur := top.x
-		for row in round(top.y) ..< round(mid.y) {
-			for col in round(x1_cur) .. round(x2_cur) {
-				draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+		if rise != 0 {
+			s1 := (mid.x - top.x) / rise
+			s2 := (midline.x - top.x) / rise
+			if s1 > s2 {
+				s1, s2 = s2, s1
 			}
-			x1_cur += s1
-			x2_cur += s2
+			x1_cur := top.x
+			x2_cur := top.x
+			for row in round(top.y) ..< round(mid.y) {
+				for col in round(x1_cur) .. round(x2_cur) {
+					draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+				}
+				x1_cur += s1
+				x2_cur += s2
+			}
 		}
 	}
 
 	// NOTE(sen) Flat top
 	{
 		rise := bottom.y - mid.y
-		s1 := (mid.x - bottom.x) / rise
-		s2 := (midline.x - bottom.x) / rise
-		if s1 > s2 {
-			s1, s2 = s2, s1
-		}
-		x1_cur := bottom.x
-		x2_cur := bottom.x
-		for row := round(bottom.y); row > round(mid.y); row -= 1 {
-			for col in round(x1_cur) .. round(x2_cur) {
-				draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+		if rise != 0 {
+			s1 := (mid.x - bottom.x) / rise
+			s2 := (midline.x - bottom.x) / rise
+			if s1 > s2 {
+				s1, s2 = s2, s1
 			}
-			x1_cur += s1
-			x2_cur += s2
+			x1_cur := bottom.x
+			x2_cur := bottom.x
+			for row := round(bottom.y); row > round(mid.y); row -= 1 {
+				for col in round(x1_cur) .. round(x2_cur) {
+					draw_pixel(pixels, pixels_dim, [2]int{col, row}, color)
+				}
+				x1_cur += s1
+				x2_cur += s2
+			}
 		}
 	}
 
-	//draw_line(pixels, pixels_dim, mid, midline, color)
 }
 
 // Returns offset from screen center in world units
