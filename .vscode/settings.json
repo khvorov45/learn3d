@@ -4,6 +4,8 @@
     "DEFAULTTOPRIMARY",
     "HREDRAW",
     "Hwnd",
+    "icos",
+    "isin",
     "KEYUP",
     "Lparam",
     "Lresult",

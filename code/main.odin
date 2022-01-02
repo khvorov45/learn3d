@@ -4,6 +4,7 @@ USE_SDL :: false
 
 import "core:time"
 import "core:os"
+import "core:fmt"
 
 when USE_SDL {
 	import wnd "window/window_sdl"
@@ -20,6 +21,7 @@ main :: proc() {
 	window := wnd.create_window("learn3d", 1280, 720)
 
 	mesh: rdr.Mesh
+	mesh.scale = 1
 	{
 		mesh_file, ok := os.read_entire_file("assets/f22.obj")
 		assert(ok)
