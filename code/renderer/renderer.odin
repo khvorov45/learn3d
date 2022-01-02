@@ -9,7 +9,7 @@ Renderer :: struct {
 	pixels:               []u32,
 	pixels_dim:           [2]int,
 	options:              bit_set[DisplayOption],
-	transformed_vertices: [dynamic][3]f32,
+	transformed_vertices: [dynamic][4]f32,
 	face_depths:          [dynamic]FaceDepth,
 }
 
@@ -134,7 +134,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 	// NOTE(sen) Transform the vertices
 	for vertex in mesh.vertices {
 		vertex_transformed := transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
-		append(&renderer.transformed_vertices, vertex_transformed.xyz)
+		append(&renderer.transformed_vertices, vertex_transformed)
 	}
 
 	// NOTE(sen) Sort faces by depth
@@ -153,34 +153,43 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 		proc(f1: FaceDepth, f2: FaceDepth) -> bool {return f1.depth < f2.depth},
 	)
 
+	// NOTE(sen) Draw triangles
+
+	width_over_height := f32(renderer.pixels_dim.x) / f32(renderer.pixels_dim.y)
+	projection4 := perspective(width_over_height, to_radians(80), 100, 0.1)
+
 	for face_depth in renderer.face_depths {
 
 		face := mesh.faces[face_depth.face]
 
-		vertices: [3][3]f32
+		vertices: [3][4]f32
 		for fi, vi in face.indices {
-			vertices[vi] = renderer.transformed_vertices[fi]
+			vert := renderer.transformed_vertices[fi]
+			vertices[vi] = [4]f32{vert.x, vert.y, vert.z, 1}
 		}
 
-		ab := vertices[1] - vertices[0]
-		ac := vertices[2] - vertices[0]
+		ab := vertices[1].xyz - vertices[0].xyz
+		ac := vertices[2].xyz - vertices[0].xyz
 		normal := linalg.cross(ab, ac)
 
-		camera_ray := -vertices[0]
+		camera_ray := -vertices[0].xyz
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
 
 		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
-			get_px :: proc(vertex: [3]f32, pixels_dim: [2]int) -> [2]f32 {
-				vertex_projected := project(vertex)
-				vertex_pixels := screen_world_to_pixels(vertex_projected, 500, pixels_dim)
+			get_px :: proc(vertex: [4]f32, proj: matrix[4, 4]f32, pixels_dim: [2]int) -> [2]f32 {
+				vertex_projected := proj * vertex
+				if vertex_projected.w != 0 {
+					vertex_projected.xyz /= vertex_projected.w
+				}
+				vertex_pixels := ndc_to_pixels(vertex_projected.xy, pixels_dim)
 				return vertex_pixels
 			}
 
 			vertices_px: [3][2]f32
 			for vertex, index in vertices {
-				vertices_px[index] = get_px(vertex, renderer.pixels_dim)
+				vertices_px[index] = get_px(vertex, projection4, renderer.pixels_dim)
 			}
 
 			if .FilledTriangles in renderer.options {
@@ -206,17 +215,16 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 
 			est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
-			est_center_px := get_px(est_center, renderer.pixels_dim)
+			est_center_px := get_px(est_center, projection4, renderer.pixels_dim)
 
 			if .Midpoints in renderer.options {
 				draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
 			}
 
-			normal_tip := 0.3 * linalg.normalize(normal) + est_center
-			normal_tip_px := get_px(normal_tip, renderer.pixels_dim)
-
 			if .Normals in renderer.options {
-				draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+				//normal_tip := 0.3 * linalg.normalize(normal) + est_center.xyz
+				//normal_tip_px := get_px(normal_tip, projection4, renderer.pixels_dim)
+				//draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
 			}
 
 		}
@@ -299,28 +307,10 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 
 }
 
-// Returns offset from screen center in world units
-project :: proc(point_camera_space: [3]f32) -> [2]f32 {
-
-	point_screen := point_camera_space.xy
-	point_screen /= point_camera_space.z
-
-	return point_screen
-}
-
-// Takes offset from screen center in world units
-screen_world_to_pixels :: proc(
-	point_screen_world: [2]f32,
-	world_to_pixels: f32,
-	pixels_dim: [2]int,
-) -> [2]f32 {
-
-	point_pixels := point_screen_world * [2]f32{world_to_pixels, -world_to_pixels}
-
-	half_dim := [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)} * 0.5
-	point_pixels_from_corner := point_pixels + half_dim
-
-	return point_pixels_from_corner
+ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
+	point_01 := point_ndc * 0.5 + 0.5
+	point_px := point_01 * [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)}
+	return point_px
 }
 
 rotate_x :: proc(vec: [3]f32, angle: f32) -> [3]f32 {
@@ -528,6 +518,23 @@ rotation :: proc(axis: [3]f32, angle: f32) -> matrix[4, 4]f32 {
 	result[2, 3] = 0
 
 	result[3, 3] = 1
+
+	return result
+}
+
+perspective :: proc(width_over_height, fov, z_far, z_near: f32) -> matrix[4, 4]f32 {
+	tan := math.tan(fov / 2)
+	itan := 1 / tan
+
+	z_coef := z_far / (z_far - z_near)
+
+	result: matrix[4, 4]f32
+
+	result[0, 0] = itan
+	result[1, 1] = width_over_height * itan
+	result[2, 2] = z_coef
+	result[2, 3] = -z_coef * z_near
+	result[3, 2] = 1
 
 	return result
 }
