@@ -308,7 +308,7 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 }
 
 ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
-	point_01 := point_ndc * 0.5 + 0.5
+	point_01 := point_ndc * [2]f32{0.5, -0.5} + 0.5
 	point_px := point_01 * [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)}
 	return point_px
 }
