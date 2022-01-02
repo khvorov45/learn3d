@@ -3,18 +3,19 @@ package renderer
 import "core:math"
 import "core:math/linalg"
 import "core:builtin"
+import "core:slice"
 
 Renderer :: struct {
-	pixels:          []u32,
-	pixels_dim:      [2]int,
-	options:         bit_set[DisplayOption],
-	faces_to_render: [dynamic]FaceToRender,
+	pixels:               []u32,
+	pixels_dim:           [2]int,
+	options:              bit_set[DisplayOption],
+	transformed_vertices: [dynamic][3]f32,
+	face_depths:          [dynamic]FaceDepth,
 }
 
-FaceToRender :: struct {
-	avg_z:    f32,
-	vertices: [3][3]f32,
-	color:    u32,
+FaceDepth :: struct {
+	face:  int,
+	depth: f32,
 }
 
 DisplayOption :: enum {
@@ -116,7 +117,8 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
-	builtin.clear(&renderer.faces_to_render)
+	builtin.clear(&renderer.transformed_vertices)
+	builtin.clear(&renderer.face_depths)
 
 	scale4 := scale(mesh.scale)
 
@@ -129,42 +131,42 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 	transform := translation4 * rotation4 * scale4
 
-	for face in mesh.faces {
-
-		sum_z: f32 = 0
-		vertices: [3][3]f32
-
-		for vertex_index, index in face.indices {
-
-			vertex := mesh.vertices[vertex_index]
-			vertex_transformed := transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
-			vertices[index] = vertex_transformed.xyz
-			sum_z += vertex_transformed.z
-
-		}
-
-		avg_z := sum_z / 3
-		face_to_render := FaceToRender{avg_z, vertices, face.color}
-		append(&renderer.faces_to_render, face_to_render)
-
-		// NOTE(sen) Keep the faces sorted
-		for cur_index := len(renderer.faces_to_render) - 1; cur_index >= 1; cur_index -= 1 {
-			this := renderer.faces_to_render[cur_index]
-			prev := renderer.faces_to_render[cur_index - 1]
-			if this.avg_z > prev.avg_z {
-				renderer.faces_to_render[cur_index], renderer.faces_to_render[cur_index - 1] = prev, this
-			}
-		}
-
+	// NOTE(sen) Transform the vertices
+	for vertex in mesh.vertices {
+		vertex_transformed := transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
+		append(&renderer.transformed_vertices, vertex_transformed.xyz)
 	}
 
-	for face_to_render in renderer.faces_to_render {
+	// NOTE(sen) Sort faces by depth
+	for face, face_index in mesh.faces {
+		sum_z: f32 = 0
+		for vi in face.indices {
+			vertex := renderer.transformed_vertices[vi]
+			sum_z += vertex.z
+		}
+		avg_z := sum_z / len(face.indices)
+		face_depth := FaceDepth{face_index, avg_z}
+		append(&renderer.face_depths, face_depth)
+	}
+	slice.sort_by(
+		renderer.face_depths[:],
+		proc(f1: FaceDepth, f2: FaceDepth) -> bool {return f1.depth < f2.depth},
+	)
 
-		ab := face_to_render.vertices[1] - face_to_render.vertices[0]
-		ac := face_to_render.vertices[2] - face_to_render.vertices[0]
+	for face_depth in renderer.face_depths {
+
+		face := mesh.faces[face_depth.face]
+
+		vertices: [3][3]f32
+		for fi, vi in face.indices {
+			vertices[vi] = renderer.transformed_vertices[fi]
+		}
+
+		ab := vertices[1] - vertices[0]
+		ac := vertices[2] - vertices[0]
 		normal := linalg.cross(ab, ac)
 
-		camera_ray := -face_to_render.vertices[0]
+		camera_ray := -vertices[0]
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
 
@@ -177,12 +179,15 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			vertices_px: [3][2]f32
-			for vertex, index in face_to_render.vertices {
+			for vertex, index in vertices {
 				vertices_px[index] = get_px(vertex, renderer.pixels_dim)
 			}
 
 			if .FilledTriangles in renderer.options {
-				draw_filled_triangle(renderer, vertices_px, face_to_render.color)
+				draw_filled_triangle(renderer, vertices_px, face.color)
+				draw_line(renderer, vertices_px[0], vertices_px[1], face.color)
+				draw_line(renderer, vertices_px[0], vertices_px[2], face.color)
+				draw_line(renderer, vertices_px[1], vertices_px[2], face.color)
 			}
 
 			if .Wireframe in renderer.options {
@@ -200,15 +205,14 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 
-			est_center := (face_to_render.vertices[0] + face_to_render.vertices[1] + face_to_render.vertices[2]) /
-                 3
+			est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
 			est_center_px := get_px(est_center, renderer.pixels_dim)
 
 			if .Midpoints in renderer.options {
 				draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
 			}
 
-			normal_tip := 0.1 * linalg.normalize(normal) + est_center
+			normal_tip := 0.3 * linalg.normalize(normal) + est_center
 			normal_tip_px := get_px(normal_tip, renderer.pixels_dim)
 
 			if .Normals in renderer.options {
@@ -239,7 +243,7 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 	}
 	midline := [2]f32{midline_x, mid.y}
 
-	// NOTE(sen) Midline
+	// NOTE(sen) Midline - narrow triangles would overstep this in fill below
 	{
 		start := round(mid.x)
 		end := round(midline.x)
@@ -276,21 +280,19 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 	{
 		rise := bottom.y - mid.y
 		if rise != 0 {
-			// NOTE(sen) Step from the top to prevent fp-error caused alignment problems
 			s1 := (mid.x - bottom.x) / rise
 			s2 := (midline.x - bottom.x) / rise
-			x1_cur := mid.x
-			x2_cur := midline.x
-			if x1_cur > x2_cur {
-				x1_cur, x2_cur = x2_cur, x1_cur
+			if s1 > s2 {
 				s1, s2 = s2, s1
 			}
-			for row in round(mid.y) .. round(bottom.y) {
+			x1_cur := bottom.x
+			x2_cur := bottom.x
+			for row := round(bottom.y); row > round(mid.y); row -= 1 {
 				for col in round(x1_cur) .. round(x2_cur) {
 					draw_pixel(renderer, [2]int{col, row}, color)
 				}
-				x1_cur -= s1
-				x2_cur -= s2
+				x1_cur += s1
+				x2_cur += s2
 			}
 		}
 	}
