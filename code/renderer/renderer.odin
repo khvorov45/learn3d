@@ -37,7 +37,7 @@ Mesh :: struct {
 
 Face :: struct {
 	indices: [3]int,
-	color:   u32,
+	color:   [4]f32,
 }
 
 create_renderer :: proc(width, height: int) -> Renderer {
@@ -96,25 +96,25 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	append(&mesh.vertices, v6)
 	append(&mesh.vertices, v7)
 
-	append(&mesh.faces, Face{front1, 0xFFFF0000})
-	append(&mesh.faces, Face{front2, 0xFFFF0000})
+	append(&mesh.faces, Face{front1, [4]f32{1, 0, 0, 1}})
+	append(&mesh.faces, Face{front2, [4]f32{1, 0, 0, 1}})
 
-	append(&mesh.faces, Face{left1, 0xFF00FF00})
-	append(&mesh.faces, Face{left2, 0xFF00FF00})
+	append(&mesh.faces, Face{left1, [4]f32{0, 1, 0, 1}})
+	append(&mesh.faces, Face{left2, [4]f32{0, 1, 0, 1}})
 
-	append(&mesh.faces, Face{right1, 0xFF0000FF})
-	append(&mesh.faces, Face{right2, 0xFF0000FF})
+	append(&mesh.faces, Face{right1, [4]f32{0, 0, 1, 1}})
+	append(&mesh.faces, Face{right2, [4]f32{0, 0, 1, 1}})
 
-	append(&mesh.faces, Face{top1, 0xFFFFFF00})
-	append(&mesh.faces, Face{top2, 0xFFFFFF00})
+	append(&mesh.faces, Face{top1, [4]f32{1, 1, 0, 1}})
+	append(&mesh.faces, Face{top2, [4]f32{1, 1, 0, 1}})
 
-	append(&mesh.faces, Face{bottom1, 0xFFFF00FF})
-	append(&mesh.faces, Face{bottom2, 0xFFFF00FF})
+	append(&mesh.faces, Face{bottom1, [4]f32{1, 0, 1, 1}})
+	append(&mesh.faces, Face{bottom2, [4]f32{1, 0, 1, 1}})
 
-	append(&mesh.faces, Face{back1, 0xFF00FFFF})
-	append(&mesh.faces, Face{back2, 0xFF00FFFF})
+	append(&mesh.faces, Face{back1, [4]f32{0, 1, 1, 1}})
+	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}})
 }
-
+import "core:fmt"
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 	builtin.clear(&renderer.transformed_vertices)
@@ -150,13 +150,15 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 	}
 	slice.sort_by(
 		renderer.face_depths[:],
-		proc(f1: FaceDepth, f2: FaceDepth) -> bool {return f1.depth < f2.depth},
+		proc(f1: FaceDepth, f2: FaceDepth) -> bool {return f1.depth > f2.depth},
 	)
 
 	// NOTE(sen) Draw triangles
 
 	width_over_height := f32(renderer.pixels_dim.x) / f32(renderer.pixels_dim.y)
 	projection4 := perspective(width_over_height, to_radians(80), 100, 0.1)
+
+	light_ray := linalg.normalize([3]f32{0, 0, 1})
 
 	for face_depth in renderer.face_depths {
 
@@ -170,11 +172,12 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 		ab := vertices[1].xyz - vertices[0].xyz
 		ac := vertices[2].xyz - vertices[0].xyz
-		normal := linalg.cross(ab, ac)
+		normal := linalg.normalize(linalg.cross(ab, ac))
 
 		camera_ray := -vertices[0].xyz
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
+		light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
 
 		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
@@ -193,10 +196,11 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			if .FilledTriangles in renderer.options {
-				draw_filled_triangle(renderer, vertices_px, face.color)
-				draw_line(renderer, vertices_px[0], vertices_px[1], face.color)
-				draw_line(renderer, vertices_px[0], vertices_px[2], face.color)
-				draw_line(renderer, vertices_px[1], vertices_px[2], face.color)
+				color := color_to_u32argb(face.color * light_normal_dot)
+				draw_filled_triangle(renderer, vertices_px, color)
+				draw_line(renderer, vertices_px[0], vertices_px[1], color)
+				draw_line(renderer, vertices_px[0], vertices_px[2], color)
+				draw_line(renderer, vertices_px[1], vertices_px[2], color)
 			}
 
 			if .Wireframe in renderer.options {
@@ -222,9 +226,13 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			if .Normals in renderer.options {
-				//normal_tip := 0.3 * linalg.normalize(normal) + est_center.xyz
-				//normal_tip_px := get_px(normal_tip, projection4, renderer.pixels_dim)
-				//draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+				normal_tip := 0.3 * normal + est_center.xyz
+				normal_tip_px := get_px(
+					[4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 0},
+					projection4,
+					renderer.pixels_dim,
+				)
+				draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
 			}
 
 		}
@@ -463,7 +471,8 @@ draw_pixel :: proc(renderer: ^Renderer, pos: [2]int, color: u32) {
 	}
 }
 
-color_to_u32argb :: proc(color: [4]f32) -> u32 {
+color_to_u32argb :: proc(color01: [4]f32) -> u32 {
+	color := color01 * 255
 	result := u32(color.a) << 24 | u32(color.r) << 16 | u32(color.g) << 8 | u32(color.b)
 	return result
 }

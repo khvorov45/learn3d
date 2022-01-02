@@ -74,7 +74,8 @@ read_mesh :: proc(file_data: []u8, mesh: ^rdr.Mesh) {
 				face.indices.y, line = read_face_entry(line, strings.index_rune(line, ' '))
 				face.indices.z, line = read_face_entry(line, len(line))
 				face.indices -= 1
-				face.color = 0xFF333333
+				face.color = 0.2
+				face.color.a = 1
 				append(&mesh.faces, face)
 			}
 		}
