@@ -1,4 +1,4 @@
-package input
+package learn3d
 
 import "core:reflect"
 

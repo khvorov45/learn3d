@@ -1,6 +1,6 @@
-package window
+package learn3d
 
-Window :: struct {
+SharedWindow :: struct {
 	is_running:    bool,
 	is_fullscreen: bool,
 	dim:           [2]int,

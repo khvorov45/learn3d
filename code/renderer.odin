@@ -1,4 +1,4 @@
-package renderer
+package learn3d
 
 import "core:math"
 import "core:math/linalg"

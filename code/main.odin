@@ -1,37 +1,27 @@
-package main
-
-USE_SDL :: false
+package learn3d
 
 import "core:time"
 import "core:os"
 import "core:fmt"
 
-when USE_SDL {
-	import wnd "window/window_sdl"
-} else {
-	when ODIN_OS == "windows" do import wnd "window/window_win32"
-}
-
-import rdr "learn3d:renderer"
-import "learn3d:obj"
-import inp "learn3d:input"
+USE_SDL :: true
 
 main :: proc() {
 
-	window := wnd.create_window("learn3d", 1280, 720)
+	window := create_window("learn3d", 1280, 720)
 
-	mesh: rdr.Mesh
+	mesh: Mesh
 	mesh.scale = 1
 	{
 		mesh_file, ok := os.read_entire_file("assets/f22.obj")
 		assert(ok)
-		//obj.read_mesh(mesh_file, &mesh)
-		rdr.append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
+		//read_mesh(mesh_file, &mesh)
+		append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
 	}
 
-	renderer := rdr.create_renderer(window.dim.x, window.dim.y)
+	renderer := create_renderer(window.dim.x, window.dim.y)
 
-	input: inp.Input
+	input: Input
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
@@ -45,15 +35,15 @@ main :: proc() {
 		// SECTION Input
 		//
 
-		inp.clear_half_transitions(&input)
-		wnd.poll_input(&window, &input)
+		clear_half_transitions(&input)
+		poll_input(&window, &input)
 
 		//
 		// SECTION Update
 		//
 
-		if input.alt_r.ended_down && inp.was_pressed(input.enter) {
-			wnd.toggle_fullscreen(&window)
+		if input.alt_r.ended_down && was_pressed(input.enter) {
+			toggle_fullscreen(&window)
 		}
 
 		if input.A.ended_down {
@@ -75,34 +65,34 @@ main :: proc() {
 			mesh.rotation -= [3]f32{0.0, 0.0, 0.02}
 		}
 
-		if inp.was_pressed(input.digit1) {
-			rdr.toggle_option(&renderer, .FilledTriangles)
+		if was_pressed(input.digit1) {
+			toggle_option(&renderer, .FilledTriangles)
 		}
-		if inp.was_pressed(input.digit2) {
-			rdr.toggle_option(&renderer, .Wireframe)
+		if was_pressed(input.digit2) {
+			toggle_option(&renderer, .Wireframe)
 		}
-		if inp.was_pressed(input.digit3) {
-			rdr.toggle_option(&renderer, .Vertices)
+		if was_pressed(input.digit3) {
+			toggle_option(&renderer, .Vertices)
 		}
-		if inp.was_pressed(input.digit4) {
-			rdr.toggle_option(&renderer, .Normals)
+		if was_pressed(input.digit4) {
+			toggle_option(&renderer, .Normals)
 		}
-		if inp.was_pressed(input.digit5) {
-			rdr.toggle_option(&renderer, .Midpoints)
+		if was_pressed(input.digit5) {
+			toggle_option(&renderer, .Midpoints)
 		}
-		if inp.was_pressed(input.digit6) {
-			rdr.toggle_option(&renderer, .BackfaceCull)
+		if was_pressed(input.digit6) {
+			toggle_option(&renderer, .BackfaceCull)
 		}
 
 		//
 		// SECTION Render
 		//
 
-		rdr.clear(&renderer)
+		clear(&renderer)
 
-		rdr.render_mesh(&renderer, mesh)
+		render_mesh(&renderer, mesh)
 
-		wnd.display_pixels(&window, renderer.pixels, renderer.pixels_dim)
+		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 
 		//
 		// SECTION Frame time

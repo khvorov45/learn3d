@@ -1,15 +1,14 @@
-package window_win32
+package learn3d
+
+when ODIN_OS == "windows" {
 
 import "core:sys/win32"
 import "core:fmt"
 
-import shared "learn3d:window"
-import inp "learn3d:input"
-
 GlobalRunning := true
 
 Window :: struct {
-	using shared: shared.Window,
+	using shared: SharedWindow,
 	win32:        Win32Window,
 }
 
@@ -112,7 +111,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	return result
 }
 
-poll_input :: proc(window: ^Window, input: ^inp.Input) {
+poll_input :: proc(window: ^Window, input: ^Input) {
 
 	hwnd := window.win32.hwnd
 
@@ -313,3 +312,5 @@ toggle_fullscreen :: proc(window: ^Window) {
 
 	window.is_fullscreen = !window.is_fullscreen
 }
+
+} // NOTE(sen) when os == windows

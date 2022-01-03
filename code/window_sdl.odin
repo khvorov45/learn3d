@@ -1,12 +1,11 @@
-package window_sdl
+package learn3d
+
+when USE_SDL {
 
 import sdl "vendor:sdl2"
 
-import shared "learn3d:window"
-import inp "learn3d:input"
-
 Window :: struct {
-	using shared: shared.Window,
+	using shared: SharedWindow,
 	sdl:          SdlWindow,
 }
 
@@ -57,7 +56,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	return result
 }
 
-poll_input :: proc(window: ^Window, input: ^inp.Input) {
+poll_input :: proc(window: ^Window, input: ^Input) {
 
 	event: sdl.Event
 	for sdl.PollEvent(&event) != 0 {
@@ -156,3 +155,5 @@ toggle_fullscreen :: proc(window: ^Window) {
 	}
 	window.is_fullscreen = !window.is_fullscreen
 }
+
+} // NOTE(sen) when sdl

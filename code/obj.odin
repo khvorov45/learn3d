@@ -1,11 +1,9 @@
-package obj
+package learn3d
 
 import "core:strings"
 import "core:strconv"
 
-import rdr "learn3d:renderer"
-
-read_mesh :: proc(file_data: []u8, mesh: ^rdr.Mesh) {
+read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 	input_left := string(file_data)
 
 	for len(input_left) > 0 {
@@ -69,7 +67,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^rdr.Mesh) {
 				vertex.z, line = parse_f32(line, len(line))
 				append(&mesh.vertices, vertex)
 			case "f ":
-				face: rdr.Face
+				face: Face
 				face.indices.x, line = read_face_entry(line, strings.index_rune(line, ' '))
 				face.indices.y, line = read_face_entry(line, strings.index_rune(line, ' '))
 				face.indices.z, line = read_face_entry(line, len(line))
