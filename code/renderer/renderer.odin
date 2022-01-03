@@ -319,7 +319,7 @@ draw_triangle :: proc(
 			s2 := (bottom.x - midline.x) / rise
 			x1_cur := mid.x
 			x2_cur := midline.x
-			color := color_to_u32argb(color * 0.9)
+			color := color_to_u32argb(color)
 			if x1_cur > x2_cur {
 				x1_cur, x2_cur = x2_cur, x1_cur
 				s1, s2 = s2, s1
