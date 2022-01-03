@@ -11,6 +11,8 @@ Renderer :: struct {
 	options:              bit_set[DisplayOption],
 	transformed_vertices: [dynamic][4]f32,
 	face_depths:          [dynamic]FaceDepth,
+	texture:              []u32,
+	texture_dim:          [2]int,
 }
 
 FaceDepth :: struct {
@@ -38,6 +40,7 @@ Mesh :: struct {
 Face :: struct {
 	indices: [3]int,
 	color:   [4]f32,
+	texture: [3][2]f32,
 }
 
 create_renderer :: proc(width, height: int) -> Renderer {
@@ -45,6 +48,17 @@ create_renderer :: proc(width, height: int) -> Renderer {
 	renderer.pixels = make([]u32, width * height)
 	renderer.pixels_dim = [2]int{width, height}
 	renderer.options = {.BackfaceCull, .FilledTriangles}
+	renderer.texture_dim = [2]int{64, 64}
+	renderer.texture = make([]u32, renderer.texture_dim.x * renderer.texture_dim.y)
+	for row in 0 ..< renderer.texture_dim.y {
+		for col in 0 ..< renderer.texture_dim.x {
+			color: u32 = 0xFFFF0000
+			if row % 16 == 0 || col % 16 == 0 {
+				color = 0xFF00FF00
+			}
+			renderer.texture[row * renderer.texture_dim.x + col] = color
+		}
+	}
 	return renderer
 }
 
@@ -96,25 +110,25 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	append(&mesh.vertices, v6)
 	append(&mesh.vertices, v7)
 
-	append(&mesh.faces, Face{front1, [4]f32{1, 0, 0, 1}})
-	append(&mesh.faces, Face{front2, [4]f32{1, 0, 0, 1}})
+	append(&mesh.faces, Face{front1, [4]f32{1, 0, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
+	append(&mesh.faces, Face{front2, [4]f32{1, 0, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{left1, [4]f32{0, 1, 0, 1}})
-	append(&mesh.faces, Face{left2, [4]f32{0, 1, 0, 1}})
+	append(&mesh.faces, Face{left1, [4]f32{0, 1, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
+	append(&mesh.faces, Face{left2, [4]f32{0, 1, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{right1, [4]f32{0, 0, 1, 1}})
-	append(&mesh.faces, Face{right2, [4]f32{0, 0, 1, 1}})
+	append(&mesh.faces, Face{right1, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
+	append(&mesh.faces, Face{right2, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{top1, [4]f32{1, 1, 0, 1}})
-	append(&mesh.faces, Face{top2, [4]f32{1, 1, 0, 1}})
+	append(&mesh.faces, Face{top1, [4]f32{1, 1, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
+	append(&mesh.faces, Face{top2, [4]f32{1, 1, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{bottom1, [4]f32{1, 0, 1, 1}})
-	append(&mesh.faces, Face{bottom2, [4]f32{1, 0, 1, 1}})
+	append(&mesh.faces, Face{bottom1, [4]f32{1, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
+	append(&mesh.faces, Face{bottom2, [4]f32{1, 0, 1, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{back1, [4]f32{0, 1, 1, 1}})
-	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}})
+	append(&mesh.faces, Face{back1, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
+	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 }
-import "core:fmt"
+
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 	builtin.clear(&renderer.transformed_vertices)
@@ -196,11 +210,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			if .FilledTriangles in renderer.options {
-				color := color_to_u32argb(face.color * light_normal_dot)
-				draw_filled_triangle(renderer, vertices_px, color)
-				draw_line(renderer, vertices_px[0], vertices_px[1], color)
-				draw_line(renderer, vertices_px[0], vertices_px[2], color)
-				draw_line(renderer, vertices_px[1], vertices_px[2], color)
+				draw_triangle(renderer, vertices_px, face.color * light_normal_dot, face.texture)
 			}
 
 			if .Wireframe in renderer.options {
@@ -241,35 +251,43 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 
 }
 
-draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u32) {
+draw_triangle :: proc(
+	renderer: ^Renderer,
+	vertices: [3][2]f32,
+	color: [4]f32,
+	texture: [3][2]f32,
+) {
+
+	// NOTE(sen) Align the triangle with the pixel grid to avoid seams
+	vertices := vertices
+	for vertex in &vertices {
+		for val in &vertex {
+			val = math.round(val)
+		}
+	}
+
+	// NOTE(sen) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
+	tex_top, tex_mid, tex_bottom := texture[0], texture[1], texture[2]
 	if top.y > mid.y {
 		top, mid = mid, top
+		tex_top, tex_mid = tex_mid, tex_top
 	}
 	if mid.y > bottom.y {
 		mid, bottom = bottom, mid
+		tex_mid, tex_bottom = tex_bottom, tex_mid
 	}
 	if top.y > mid.y {
 		top, mid = mid, top
+		tex_top, tex_mid = tex_mid, tex_top
 	}
 
+	// NOTE(sen) Midline
 	midline_x := mid.x
 	if top.y != bottom.y {
 		midline_x = (mid.y - top.y) / (bottom.y - top.y) * (bottom.x - top.x) + top.x
 	}
 	midline := [2]f32{midline_x, mid.y}
-
-	// NOTE(sen) Midline - narrow triangles would overstep this in fill below
-	{
-		start := round(mid.x)
-		end := round(midline.x)
-		if start > end {
-			start, end = end, start
-		}
-		for col in start .. end {
-			draw_pixel(renderer, [2]int{col, round(mid.y)}, color)
-		}
-	}
 
 	// NOTE(sen) Flat bottom
 	{
@@ -282,9 +300,10 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 			}
 			x1_cur := top.x
 			x2_cur := top.x
-			for row in round(top.y) ..< round(mid.y) {
-				for col in round(x1_cur) .. round(x2_cur) {
-					draw_pixel(renderer, [2]int{col, row}, color)
+			color := color_to_u32argb(color)
+			for row := top.y; row <= mid.y; row += 1 {
+				for col := x1_cur; col <= x2_cur; col += 1 {
+					draw_pixel(renderer, [2]int{round(col), round(row)}, color)
 				}
 				x1_cur += s1
 				x2_cur += s2
@@ -296,16 +315,18 @@ draw_filled_triangle :: proc(renderer: ^Renderer, vertices: [3][2]f32, color: u3
 	{
 		rise := bottom.y - mid.y
 		if rise != 0 {
-			s1 := (mid.x - bottom.x) / rise
-			s2 := (midline.x - bottom.x) / rise
-			if s1 > s2 {
+			s1 := (bottom.x - mid.x) / rise
+			s2 := (bottom.x - midline.x) / rise
+			x1_cur := mid.x
+			x2_cur := midline.x
+			color := color_to_u32argb(color * 0.9)
+			if x1_cur > x2_cur {
+				x1_cur, x2_cur = x2_cur, x1_cur
 				s1, s2 = s2, s1
 			}
-			x1_cur := bottom.x
-			x2_cur := bottom.x
-			for row := round(bottom.y); row > round(mid.y); row -= 1 {
-				for col in round(x1_cur) .. round(x2_cur) {
-					draw_pixel(renderer, [2]int{col, row}, color)
+			for row := mid.y; row <= bottom.y; row += 1 {
+				for col := x1_cur; col <= x2_cur; col += 1 {
+					draw_pixel(renderer, [2]int{round(col), round(row)}, color)
 				}
 				x1_cur += s1
 				x2_cur += s2

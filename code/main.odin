@@ -57,22 +57,22 @@ main :: proc() {
 		}
 
 		if input.A.ended_down {
-			mesh.rotation += [3]f32{0.0, 0.1, 0.0}
+			mesh.rotation += [3]f32{0.0, 0.02, 0.0}
 		}
 		if input.D.ended_down {
-			mesh.rotation -= [3]f32{0.0, 0.1, 0.0}
+			mesh.rotation -= [3]f32{0.0, 0.02, 0.0}
 		}
 		if input.W.ended_down {
-			mesh.rotation += [3]f32{0.1, 0.0, 0.0}
+			mesh.rotation += [3]f32{0.02, 0.0, 0.0}
 		}
 		if input.S.ended_down {
-			mesh.rotation -= [3]f32{0.1, 0.0, 0.0}
+			mesh.rotation -= [3]f32{0.02, 0.0, 0.0}
 		}
 		if input.Q.ended_down {
-			mesh.rotation += [3]f32{0.0, 0.0, 0.1}
+			mesh.rotation += [3]f32{0.0, 0.0, 0.02}
 		}
 		if input.E.ended_down {
-			mesh.rotation -= [3]f32{0.0, 0.0, 0.1}
+			mesh.rotation -= [3]f32{0.0, 0.0, 0.02}
 		}
 
 		if inp.was_pressed(input.digit1) {
