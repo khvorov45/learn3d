@@ -20,6 +20,7 @@
     "strconv",
     "SYSKEYDOWN",
     "SYSKEYUP",
+    "texel",
     "tprintf",
     "VREDRAW",
     "wparam"

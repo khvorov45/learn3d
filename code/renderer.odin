@@ -289,6 +289,13 @@ draw_triangle :: proc(
 	}
 	midline := [2]f32{midline_x, mid.y}
 
+	// NOTE(sen) Triangle vectors
+	ab := mid - top
+	ac := bottom - top
+	bc := bottom - mid
+	one_over_twice_abc_area := 1 / linalg.cross(ab, ac)
+	tex_dim_f32 := [2]f32{f32(renderer.texture_dim.x), f32(renderer.texture_dim.y)}
+
 	// NOTE(sen) Flat bottom
 	{
 		rise := mid.y - top.y
@@ -303,7 +310,22 @@ draw_triangle :: proc(
 			color := color_to_u32argb(color)
 			for row := top.y; row < mid.y; row += 1 {
 				for col := x1_cur; col < x2_cur; col += 1 {
-					draw_pixel(renderer, [2]int{round(col), round(row)}, color)
+
+					point := [2]f32{col, row}
+					ap := point - top
+					bp := point - mid
+
+					alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
+					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
+					gamma := 1 - alpha - beta
+
+					tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+
+					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
+					tex_color := renderer.texture[texel_index]
+
+					draw_pixel(renderer, [2]int{round(col), round(row)}, tex_color)
 				}
 				x1_cur += s1
 				x2_cur += s2
@@ -326,7 +348,22 @@ draw_triangle :: proc(
 			}
 			for row := mid.y; row < bottom.y; row += 1 {
 				for col := x1_cur; col < x2_cur; col += 1 {
-					draw_pixel(renderer, [2]int{round(col), round(row)}, color)
+
+					point := [2]f32{col, row}
+					ap := point - top
+					bp := point - mid
+
+					alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
+					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
+					gamma := 1 - alpha - beta
+
+					tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+
+					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
+					tex_color := renderer.texture[texel_index]
+
+					draw_pixel(renderer, [2]int{round(col), round(row)}, tex_color)
 				}
 				x1_cur += s1
 				x2_cur += s2
