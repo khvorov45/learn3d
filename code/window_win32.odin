@@ -1,18 +1,13 @@
 package learn3d
 
-when ODIN_OS == "windows" {
+when ODIN_OS == "windows" && !USE_SDL {
 
 import "core:sys/win32"
 import "core:fmt"
 
 GlobalRunning := true
 
-Window :: struct {
-	using shared: SharedWindow,
-	win32:        Win32Window,
-}
-
-Win32Window :: struct {
+PlatformWindow :: struct {
 	decorations_dim:    [2]int,
 	hwnd:               win32.Hwnd,
 	hdc:                win32.Hdc,
@@ -105,7 +100,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	previous_placement.length = size_of(previous_placement)
 
 	result := Window{
-		{true, false, window_dim},
+		true, false, window_dim,
 		{decorations_dim, window, hdc, pixel_info, previous_placement},
 	}
 	return result
@@ -113,7 +108,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 
 poll_input :: proc(window: ^Window, input: ^Input) {
 
-	hwnd := window.win32.hwnd
+	hwnd := window.platform.hwnd
 
 	message: win32.Msg
 	for win32.peek_message_a(&message, hwnd, 0, 0, 1) {
@@ -190,7 +185,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 	// NOTE(sen) Update dim
 	{
 		rect: win32.Rect
-		win32.get_client_rect(window.win32.hwnd, &rect)
+		win32.get_client_rect(window.platform.hwnd, &rect)
 		window.dim.y = int(rect.bottom - rect.top)
 		window.dim.x = int(rect.right - rect.left)
 	}
@@ -203,7 +198,7 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
 	if window.is_running {
 		result := win32.stretch_dibits(
-			window.win32.hdc,
+			window.platform.hdc,
 			0,
 			0,
 			i32(window.dim.x),
@@ -213,7 +208,7 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 			i32(pixels_dim.x),
 			i32(pixels_dim.y),
 			raw_data(pixels),
-			&window.win32.pixel_info,
+			&window.platform.pixel_info,
 			win32.DIB_RGB_COLORS,
 			win32.SRCCOPY,
 		)
@@ -248,20 +243,20 @@ toggle_fullscreen :: proc(window: ^Window) {
 
 	// NOTE(sen) Taken from https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
 
-	style := win32.get_window_long_ptr_a(window.win32.hwnd, win32.GWL_STYLE)
+	style := win32.get_window_long_ptr_a(window.platform.hwnd, win32.GWL_STYLE)
 
 	if window.is_fullscreen {
 
 		win32.set_window_long_ptr_a(
-			window.win32.hwnd,
+			window.platform.hwnd,
 			win32.GWL_STYLE,
 			win32.Long_Ptr(uint(style) | uint(win32.WS_OVERLAPPEDWINDOW)),
 		)
 
-		win32.set_window_placement(window.win32.hwnd, &window.win32.previous_placement)
+		win32.set_window_placement(window.platform.hwnd, &window.platform.previous_placement)
 
 		win32.set_window_pos(
-			window.win32.hwnd,
+			window.platform.hwnd,
 			nil,
 			0,
 			0,
@@ -279,19 +274,19 @@ toggle_fullscreen :: proc(window: ^Window) {
 		mi: win32.Monitor_Info
 		mi.size = size_of(mi)
 		get_monitor_result := win32.get_monitor_info_a(
-			win32.monitor_from_window(window.win32.hwnd, win32.MONITOR_DEFAULTTOPRIMARY),
+			win32.monitor_from_window(window.platform.hwnd, win32.MONITOR_DEFAULTTOPRIMARY),
 			&mi,
 		)
 		assert(bool(get_monitor_result))
 
 		get_window_placement_result := win32.get_window_placement(
-			window.win32.hwnd,
-			&window.win32.previous_placement,
+			window.platform.hwnd,
+			&window.platform.previous_placement,
 		)
 		assert(bool(get_window_placement_result))
 
 		win32.set_window_long_ptr_a(
-			window.win32.hwnd,
+			window.platform.hwnd,
 			win32.GWL_STYLE,
 			win32.Long_Ptr(uint(style) & ~uint(win32.WS_OVERLAPPEDWINDOW)),
 		)
@@ -299,7 +294,7 @@ toggle_fullscreen :: proc(window: ^Window) {
 		HWND_TOP: win32.Hwnd = nil
 
 		win32.set_window_pos(
-			window.win32.hwnd,
+			window.platform.hwnd,
 			HWND_TOP,
 			mi.monitor.left,
 			mi.monitor.top,

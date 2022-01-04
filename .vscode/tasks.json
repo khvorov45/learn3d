@@ -6,7 +6,7 @@
     {
       "label": "echo",
       "type": "process",
-      "command": "build.bat",
+      "command": "${workspaceFolder}/build.bat",
       "linux": {
         "command": "build.sh"
       },

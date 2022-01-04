@@ -4,7 +4,7 @@ import "core:time"
 import "core:os"
 import "core:fmt"
 
-USE_SDL :: true
+USE_SDL :: false
 
 main :: proc() {
 

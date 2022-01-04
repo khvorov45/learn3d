@@ -4,12 +4,7 @@ when USE_SDL {
 
 import sdl "vendor:sdl2"
 
-Window :: struct {
-	using shared: SharedWindow,
-	sdl:          SdlWindow,
-}
-
-SdlWindow :: struct {
+PlatformWindow :: struct {
 	window:      ^sdl.Window,
 	renderer:    ^sdl.Renderer,
 	texture:     ^sdl.Texture,
@@ -50,7 +45,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	assert(texture != nil)
 
 	result := Window{
-		{true, false, [2]int{width, height}},
+		true, false, [2]int{width, height},
 		{window, renderer, texture, texture_dim},
 	}
 	return result
@@ -124,34 +119,34 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		}
 	}
 
-	sdl.GetWindowSize(window.sdl.window, cast(^i32)&window.dim.x, cast(^i32)&window.dim.y)
+	sdl.GetWindowSize(window.platform.window, cast(^i32)&window.dim.x, cast(^i32)&window.dim.y)
 
 }
 
 display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
-	assert(sdl.RenderClear(window.sdl.renderer) == 0)
+	assert(sdl.RenderClear(window.platform.renderer) == 0)
 
 	update_texture_result := sdl.UpdateTexture(
-		window.sdl.texture,
+		window.platform.texture,
 		nil,
 		raw_data(pixels),
 		i32(pixels_dim.x) * size_of(pixels[0]),
 	)
 	assert(update_texture_result == 0)
 
-	render_copy_result := sdl.RenderCopy(window.sdl.renderer, window.sdl.texture, nil, nil)
+	render_copy_result := sdl.RenderCopy(window.platform.renderer, window.platform.texture, nil, nil)
 	assert(render_copy_result == 0)
 
-	sdl.RenderPresent(window.sdl.renderer)
+	sdl.RenderPresent(window.platform.renderer)
 
 }
 
 toggle_fullscreen :: proc(window: ^Window) {
 	if window.is_fullscreen {
-		sdl.SetWindowFullscreen(window.sdl.window, nil)
+		sdl.SetWindowFullscreen(window.platform.window, nil)
 	} else {
-		sdl.SetWindowFullscreen(window.sdl.window, sdl.WINDOW_FULLSCREEN_DESKTOP)
+		sdl.SetWindowFullscreen(window.platform.window, sdl.WINDOW_FULLSCREEN_DESKTOP)
 	}
 	window.is_fullscreen = !window.is_fullscreen
 }
