@@ -5,8 +5,11 @@
   "tasks": [
     {
       "label": "echo",
-      "type": "shell",
+      "type": "process",
       "command": "build.bat",
+      "linux": {
+        "command": "build.sh"
+      },
       "group": {
         "kind": "build",
         "isDefault": true

@@ -7,8 +7,16 @@
     {
       "type": "cppvsdbg",
       "request": "launch",
-      "name": "Debug",
+      "name": "windows",
       "program": "${workspaceFolder}/build/learn3d.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "linux",
+      "program": "${workspaceFolder}/build/learn3d",
       "args": [],
       "cwd": "${workspaceFolder}"
     }
