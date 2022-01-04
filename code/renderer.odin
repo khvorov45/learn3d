@@ -301,8 +301,8 @@ draw_triangle :: proc(
 			x1_cur := top.x
 			x2_cur := top.x
 			color := color_to_u32argb(color)
-			for row := top.y; row <= mid.y; row += 1 {
-				for col := x1_cur; col <= x2_cur; col += 1 {
+			for row := top.y; row < mid.y; row += 1 {
+				for col := x1_cur; col < x2_cur; col += 1 {
 					draw_pixel(renderer, [2]int{round(col), round(row)}, color)
 				}
 				x1_cur += s1
@@ -324,8 +324,8 @@ draw_triangle :: proc(
 				x1_cur, x2_cur = x2_cur, x1_cur
 				s1, s2 = s2, s1
 			}
-			for row := mid.y; row <= bottom.y; row += 1 {
-				for col := x1_cur; col <= x2_cur; col += 1 {
+			for row := mid.y; row < bottom.y; row += 1 {
+				for col := x1_cur; col < x2_cur; col += 1 {
 					draw_pixel(renderer, [2]int{round(col), round(row)}, color)
 				}
 				x1_cur += s1
