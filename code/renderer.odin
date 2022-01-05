@@ -258,14 +258,6 @@ draw_triangle :: proc(
 	texture: [3][2]f32,
 ) {
 
-	// NOTE(sen) Align the triangle with the pixel grid to avoid seams
-	vertices := vertices
-	for vertex in &vertices {
-		for val in &vertex {
-			val = math.round(val)
-		}
-	}
-
 	// NOTE(sen) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
 	tex_top, tex_mid, tex_bottom := texture[0], texture[1], texture[2]
@@ -300,15 +292,22 @@ draw_triangle :: proc(
 	{
 		rise := mid.y - top.y
 		if rise != 0 {
+
 			s1 := (mid.x - top.x) / rise
 			s2 := (midline.x - top.x) / rise
 			if s1 > s2 {
 				s1, s2 = s2, s1
 			}
-			x1_cur := top.x
-			x2_cur := top.x
+
+			y_start := math.ceil(top.y)
+			y_end := math.ceil(mid.y)
+
+			x1_cur := top.x + s1 * (y_start - top.y)
+			x2_cur := top.x + s2 * (y_start - top.y)
+
 			color := color_to_u32argb(color)
-			for row := top.y; row < mid.y; row += 1 {
+
+			for row := y_start; row < y_end; row += 1 {
 				for col := x1_cur; col < x2_cur; col += 1 {
 
 					point := [2]f32{col, row}
@@ -325,7 +324,7 @@ draw_triangle :: proc(
 					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
 					tex_color := renderer.texture[texel_index]
 
-					draw_pixel(renderer, [2]int{round(col), round(row)}, tex_color)
+					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
 				}
 				x1_cur += s1
 				x2_cur += s2
@@ -337,16 +336,27 @@ draw_triangle :: proc(
 	{
 		rise := bottom.y - mid.y
 		if rise != 0 {
+
 			s1 := (bottom.x - mid.x) / rise
 			s2 := (bottom.x - midline.x) / rise
+
 			x1_cur := mid.x
 			x2_cur := midline.x
-			color := color_to_u32argb(color)
+
 			if x1_cur > x2_cur {
 				x1_cur, x2_cur = x2_cur, x1_cur
 				s1, s2 = s2, s1
 			}
-			for row := mid.y; row < bottom.y; row += 1 {
+
+			y_start := math.ceil(mid.y)
+			y_end := math.ceil(bottom.y)
+
+			x1_cur += s1 * (y_start - mid.y)
+			x2_cur += s2 * (y_start - mid.y)
+
+			color := color_to_u32argb(color)
+
+			for row := y_start; row < y_end; row += 1 {
 				for col := x1_cur; col < x2_cur; col += 1 {
 
 					point := [2]f32{col, row}
@@ -363,7 +373,7 @@ draw_triangle :: proc(
 					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
 					tex_color := renderer.texture[texel_index]
 
-					draw_pixel(renderer, [2]int{round(col), round(row)}, tex_color)
+					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
 				}
 				x1_cur += s1
 				x2_cur += s2
