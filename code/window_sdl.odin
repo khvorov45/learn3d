@@ -1,6 +1,6 @@
-package learn3d
+//+build !windows
 
-when USE_SDL {
+package learn3d
 
 import sdl "vendor:sdl2"
 
@@ -45,7 +45,9 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	assert(texture != nil)
 
 	result := Window{
-		true, false, [2]int{width, height},
+		true,
+		false,
+		[2]int{width, height},
 		{window, renderer, texture, texture_dim},
 	}
 	return result
@@ -119,7 +121,11 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		}
 	}
 
-	sdl.GetWindowSize(window.platform.window, cast(^i32)&window.dim.x, cast(^i32)&window.dim.y)
+	sdl.GetWindowSize(
+		window.platform.window,
+		cast(^i32)&window.dim.x,
+		cast(^i32)&window.dim.y,
+	)
 
 }
 
@@ -135,7 +141,12 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 	)
 	assert(update_texture_result == 0)
 
-	render_copy_result := sdl.RenderCopy(window.platform.renderer, window.platform.texture, nil, nil)
+	render_copy_result := sdl.RenderCopy(
+		window.platform.renderer,
+		window.platform.texture,
+		nil,
+		nil,
+	)
 	assert(render_copy_result == 0)
 
 	sdl.RenderPresent(window.platform.renderer)
@@ -150,5 +161,3 @@ toggle_fullscreen :: proc(window: ^Window) {
 	}
 	window.is_fullscreen = !window.is_fullscreen
 }
-
-} // NOTE(sen) when sdl

@@ -1,7 +1,5 @@
 package learn3d
 
-when ODIN_OS == "windows" && !USE_SDL {
-
 import "core:sys/win32"
 import "core:fmt"
 
@@ -100,7 +98,9 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	previous_placement.length = size_of(previous_placement)
 
 	result := Window{
-		true, false, window_dim,
+		true,
+		false,
+		window_dim,
 		{decorations_dim, window, hdc, pixel_info, previous_placement},
 	}
 	return result
@@ -307,5 +307,3 @@ toggle_fullscreen :: proc(window: ^Window) {
 
 	window.is_fullscreen = !window.is_fullscreen
 }
-
-} // NOTE(sen) when os == windows

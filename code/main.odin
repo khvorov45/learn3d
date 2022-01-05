@@ -4,8 +4,6 @@ import "core:time"
 import "core:os"
 import "core:fmt"
 
-USE_SDL :: false
-
 main :: proc() {
 
 	window := create_window("learn3d", 1280, 720)
