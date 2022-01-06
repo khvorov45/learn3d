@@ -59,6 +59,8 @@ create_renderer :: proc(width, height: int) -> Renderer {
 			renderer.texture[row * renderer.texture_dim.x + col] = color
 		}
 	}
+	renderer.texture_dim = REDBRICK_TEXTURE_DIM
+	renderer.texture = (cast([^]u32)&REDBRICK_TEXTURE)[:REDBRICK_TEXTURE_DIM.x * REDBRICK_TEXTURE_DIM.y]
 	return renderer
 }
 
@@ -113,20 +115,20 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	append(&mesh.faces, Face{front1, [4]f32{1, 0, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
 	append(&mesh.faces, Face{front2, [4]f32{1, 0, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{left1, [4]f32{0, 1, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{left2, [4]f32{0, 1, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{left1, [4]f32{0, 1, 0, 1}, [3][2]f32{{1, 1}, {0, 0}, {0, 1}}})
+	append(&mesh.faces, Face{left2, [4]f32{0, 1, 0, 1}, [3][2]f32{{1, 1}, {1, 0}, {0, 0}}})
 
-	append(&mesh.faces, Face{right1, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{right2, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{right1, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{right2, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 0}, {0, 1}, {1, 0}}})
 
-	append(&mesh.faces, Face{top1, [4]f32{1, 1, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{top2, [4]f32{1, 1, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{top1, [4]f32{1, 1, 0, 1}, [3][2]f32{{0, 0}, {0, 1}, {1, 0}}})
+	append(&mesh.faces, Face{top2, [4]f32{1, 1, 0, 1}, [3][2]f32{{1, 0}, {0, 1}, {1, 1}}})
 
 	append(&mesh.faces, Face{bottom1, [4]f32{1, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{bottom2, [4]f32{1, 0, 1, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{bottom2, [4]f32{1, 0, 1, 1}, [3][2]f32{{1, 1}, {1, 0}, {0, 0}}})
 
-	append(&mesh.faces, Face{back1, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{back1, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {1, 0}}})
+	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 0}, {0, 0}}})
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
@@ -205,12 +207,24 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			vertices_px: [3][2]f32
+			og_zw: [3][2]f32
 			for vertex, index in vertices {
-				vertices_px[index] = get_px(vertex, projection4, renderer.pixels_dim)
+				vertex_projected := projection4 * vertex
+				if vertex_projected.w != 0 {
+					vertex_projected.xyz /= vertex_projected.w
+				}
+				vertices_px[index] = ndc_to_pixels(vertex_projected.xy, renderer.pixels_dim)
+				og_zw[index] = vertex_projected.zw
 			}
 
 			if .FilledTriangles in renderer.options {
-				draw_triangle(renderer, vertices_px, face.color * light_normal_dot, face.texture)
+				draw_triangle(
+					renderer,
+					vertices_px,
+					face.color * light_normal_dot,
+					face.texture,
+					og_zw,
+				)
 			}
 
 			if .Wireframe in renderer.options {
@@ -256,22 +270,27 @@ draw_triangle :: proc(
 	vertices: [3][2]f32,
 	color: [4]f32,
 	texture: [3][2]f32,
+	zw: [3][2]f32,
 ) {
 
 	// NOTE(sen) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
 	tex_top, tex_mid, tex_bottom := texture[0], texture[1], texture[2]
+	zw_top, zw_mid, zw_bottom := zw[0], zw[1], zw[2]
 	if top.y > mid.y {
 		top, mid = mid, top
 		tex_top, tex_mid = tex_mid, tex_top
+		zw_top, zw_mid = zw_mid, zw_top
 	}
 	if mid.y > bottom.y {
 		mid, bottom = bottom, mid
 		tex_mid, tex_bottom = tex_bottom, tex_mid
+		zw_mid, zw_bottom = zw_bottom, zw_mid
 	}
 	if top.y > mid.y {
 		top, mid = mid, top
 		tex_top, tex_mid = tex_mid, tex_top
+		zw_top, zw_mid = zw_mid, zw_top
 	}
 
 	// NOTE(sen) Midline
@@ -287,6 +306,12 @@ draw_triangle :: proc(
 	bc := bottom - mid
 	one_over_twice_abc_area := 1 / linalg.cross(ab, ac)
 	tex_dim_f32 := [2]f32{f32(renderer.texture_dim.x), f32(renderer.texture_dim.y)}
+	one_over_w_top := 1 / zw_top[1]
+	one_over_w_mid := 1 / zw_mid[1]
+	one_over_w_bottom := 1 / zw_bottom[1]
+	tex_top *= one_over_w_top
+	tex_mid *= one_over_w_mid
+	tex_bottom *= one_over_w_bottom
 
 	// NOTE(sen) Flat bottom
 	{
@@ -302,12 +327,17 @@ draw_triangle :: proc(
 			y_start := math.ceil(top.y)
 			y_end := math.ceil(mid.y)
 
-			x1_cur := top.x + s1 * (y_start - top.y)
-			x2_cur := top.x + s2 * (y_start - top.y)
+			x1_start := top.x + s1 * (y_start - top.y)
+			x2_start := top.x + s2 * (y_start - top.y)
 
 			color := color_to_u32argb(color)
 
+			y_steps: f32 = 0
 			for row := y_start; row < y_end; row += 1 {
+
+				x1_cur := x1_start + s1 * y_steps
+				x2_cur := x2_start + s2 * y_steps
+
 				for col := x1_cur; col < x2_cur; col += 1 {
 
 					point := [2]f32{col, row}
@@ -318,7 +348,12 @@ draw_triangle :: proc(
 					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
 					gamma := 1 - alpha - beta
 
+					one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
+					this_w := 1 / one_over_w
+
 					tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+					tex_coord01 *= this_w
+
 					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
 
 					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
@@ -326,8 +361,8 @@ draw_triangle :: proc(
 
 					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
 				}
-				x1_cur += s1
-				x2_cur += s2
+
+				y_steps += 1
 			}
 		}
 	}
@@ -340,23 +375,28 @@ draw_triangle :: proc(
 			s1 := (bottom.x - mid.x) / rise
 			s2 := (bottom.x - midline.x) / rise
 
-			x1_cur := mid.x
-			x2_cur := midline.x
+			x1_start := mid.x
+			x2_start := midline.x
 
-			if x1_cur > x2_cur {
-				x1_cur, x2_cur = x2_cur, x1_cur
+			if x1_start > x2_start {
+				x1_start, x2_start = x2_start, x1_start
 				s1, s2 = s2, s1
 			}
 
 			y_start := math.ceil(mid.y)
 			y_end := math.ceil(bottom.y)
 
-			x1_cur += s1 * (y_start - mid.y)
-			x2_cur += s2 * (y_start - mid.y)
+			x1_start += s1 * (y_start - mid.y)
+			x2_start += s2 * (y_start - mid.y)
 
 			color := color_to_u32argb(color)
 
+			y_steps: f32 = 0
 			for row := y_start; row < y_end; row += 1 {
+
+				x1_cur := x1_start + s1 * y_steps
+				x2_cur := x2_start + s2 * y_steps
+
 				for col := x1_cur; col < x2_cur; col += 1 {
 
 					point := [2]f32{col, row}
@@ -367,7 +407,12 @@ draw_triangle :: proc(
 					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
 					gamma := 1 - alpha - beta
 
+					one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
+					this_w := 1 / one_over_w
+
 					tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+					tex_coord01 *= this_w
+
 					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
 
 					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
@@ -375,8 +420,8 @@ draw_triangle :: proc(
 
 					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
 				}
-				x1_cur += s1
-				x2_cur += s2
+
+				y_steps += 1
 			}
 		}
 	}

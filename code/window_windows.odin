@@ -125,6 +125,9 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 					input.alt_r.ended_down = ended_down
 					input.alt_r.half_transition_count += 1
 				}
+			case win32.VK_SHIFT:
+				input.shift.ended_down = ended_down
+				input.shift.half_transition_count += 1
 			case 'W':
 				input.W.ended_down = ended_down
 				input.W.half_transition_count += 1
