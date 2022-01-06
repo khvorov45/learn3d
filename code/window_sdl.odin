@@ -117,6 +117,9 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 			case .NUM0:
 				input.digit0.ended_down = ended_down
 				input.digit0.half_transition_count += 1
+			case .LSHIFT, .RSHIFT:
+				input.shift.ended_down = ended_down
+				input.shift.half_transition_count += 1
 			}
 		}
 	}
