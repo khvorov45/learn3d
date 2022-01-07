@@ -12,9 +12,6 @@ Renderer :: struct {
 	options:              bit_set[DisplayOption],
 	transformed_vertices: [dynamic][4]f32,
 	face_depths:          [dynamic]FaceDepth,
-	texture:              [^]u32,
-	texture_dim:          [2]int,
-	texture_pitch:        int,
 }
 
 FaceDepth :: struct {
@@ -45,15 +42,17 @@ Face :: struct {
 	texture: [3][2]f32,
 }
 
+Texture :: struct {
+	memory: [^]u32,
+	dim:    [2]int,
+	pitch:  int,
+}
+
 create_renderer :: proc(width, height: int) -> Renderer {
 	renderer: Renderer
 	renderer.pixels = make([]u32, width * height)
 	renderer.pixels_dim = [2]int{width, height}
 	renderer.options = {.BackfaceCull, .FilledTriangles}
-
-	texture_file, ok := os.read_entire_file("assets/cube.png")
-	assert(ok)
-	renderer.texture, renderer.texture_dim, renderer.texture_pitch = read_image(texture_file)
 
 	return renderer
 }
@@ -125,7 +124,7 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 0}, {0, 0}}})
 }
 
-render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
+render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	builtin.clear(&renderer.transformed_vertices)
 	builtin.clear(&renderer.face_depths)
@@ -212,13 +211,9 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh) {
 			}
 
 			if .FilledTriangles in renderer.options {
-				draw_triangle(
-					renderer,
-					vertices_px,
-					face.color * light_normal_dot,
-					face.texture,
-					og_zw,
-				)
+				shaded_color := face.color
+				shaded_color.rgb *= light_normal_dot
+				draw_triangle(renderer, vertices_px, shaded_color, face.texture, og_zw, texture)
 			}
 
 			if .Wireframe in renderer.options {
@@ -263,13 +258,16 @@ draw_triangle :: proc(
 	renderer: ^Renderer,
 	vertices: [3][2]f32,
 	color: [4]f32,
-	texture: [3][2]f32,
+	tex_coords: [3][2]f32,
 	zw: [3][2]f32,
+	texture: Texture,
 ) {
+
+	color := color
 
 	// NOTE(sen) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
-	tex_top, tex_mid, tex_bottom := texture[0], texture[1], texture[2]
+	tex_top, tex_mid, tex_bottom := tex_coords[0], tex_coords[1], tex_coords[2]
 	zw_top, zw_mid, zw_bottom := zw[0], zw[1], zw[2]
 	if top.y > mid.y {
 		top, mid = mid, top
@@ -299,7 +297,7 @@ draw_triangle :: proc(
 	ac := bottom - top
 	bc := bottom - mid
 	one_over_twice_abc_area := 1 / linalg.cross(ab, ac)
-	tex_dim_f32 := [2]f32{f32(renderer.texture_dim.x), f32(renderer.texture_dim.y)}
+	tex_dim_f32 := [2]f32{f32(texture.dim.x), f32(texture.dim.y)}
 	one_over_w_top := 1 / zw_top[1]
 	one_over_w_mid := 1 / zw_mid[1]
 	one_over_w_bottom := 1 / zw_bottom[1]
@@ -323,8 +321,6 @@ draw_triangle :: proc(
 
 			x1_start := top.x + s1 * (y_start - top.y)
 			x2_start := top.x + s2 * (y_start - top.y)
-
-			color := color_to_u32argb(color)
 
 			y_steps: f32 = 0
 			for row := y_start; row < y_end; row += 1 {
@@ -350,10 +346,14 @@ draw_triangle :: proc(
 
 					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
 
-					texel_index := round(tex_coord_px.y) * renderer.texture_pitch + round(tex_coord_px.x)
-					tex_color := renderer.texture[texel_index]
+					texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+					tex_color32 := texture.memory[texel_index]
+					tex_color := color_to_4f32(tex_color32)
+					tex_shaded := tex_color * color
 
-					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
+					result_color := color_to_u32argb(tex_shaded)
+
+					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, result_color)
 				}
 
 				y_steps += 1
@@ -383,8 +383,6 @@ draw_triangle :: proc(
 			x1_start += s1 * (y_start - mid.y)
 			x2_start += s2 * (y_start - mid.y)
 
-			color := color_to_u32argb(color)
-
 			y_steps: f32 = 0
 			for row := y_start; row < y_end; row += 1 {
 
@@ -409,10 +407,14 @@ draw_triangle :: proc(
 
 					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
 
-					texel_index := round(tex_coord_px.y) * renderer.texture_pitch + round(tex_coord_px.x)
-					tex_color := renderer.texture[texel_index]
+					texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+					tex_color32 := texture.memory[texel_index]
+					tex_color := color_to_4f32(tex_color32)
+					tex_shaded := tex_color * color
 
-					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
+					result_color := color_to_u32argb(tex_shaded)
+
+					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, result_color)
 				}
 
 				y_steps += 1
@@ -582,6 +584,16 @@ color_to_u32argb :: proc(color01: [4]f32) -> u32 {
 	color := color01 * 255
 	result := u32(color.a) << 24 | u32(color.r) << 16 | u32(color.g) << 8 | u32(color.b)
 	return result
+}
+
+color_to_4f32 :: proc(argb: u32) -> [4]f32 {
+	a := (argb & 0xFF000000) >> 24
+	r := (argb & 0x00FF0000) >> 16
+	g := (argb & 0x0000FF00) >> 8
+	b := (argb & 0x000000FF) >> 0
+	color := [4]f32{f32(r), f32(g), f32(b), f32(a)}
+	color /= 255
+	return color
 }
 
 identity :: proc() -> matrix[4, 4]f32 {

@@ -2,7 +2,7 @@ package learn3d
 
 import "vendor:stb/image"
 
-read_image :: proc(file_data: []u8) -> ([^]u32, [2]int, int) {
+read_image :: proc(file_data: []u8) -> Texture {
 
 	dim: [2]int
 	channels_in_file: i32
@@ -31,5 +31,5 @@ read_image :: proc(file_data: []u8) -> ([^]u32, [2]int, int) {
 
 	last_row := image_data[(dim.y - 1) * dim.x:]
 
-	return raw_data(last_row), dim, pitch
+	return Texture{raw_data(last_row), dim, pitch}
 }

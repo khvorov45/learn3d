@@ -96,8 +96,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 				face.texture[1] = tex_coords[face_entries[1][1] - 1]
 				face.texture[2] = tex_coords[face_entries[2][1] - 1]
 
-				face.color = 0.2
-				face.color.a = 1
+				face.color = 1
 
 				append(&mesh.faces, face)
 			}

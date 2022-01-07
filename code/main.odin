@@ -10,13 +10,9 @@ main :: proc() {
 
 	mesh: Mesh
 	mesh.scale = 1
-	mesh.rotation = [3]f32{-0.239999965, -0.300000012, 0.00000000}
-	{
-		mesh_file, ok := os.read_entire_file("assets/cube.obj")
-		assert(ok)
-		read_mesh(mesh_file, &mesh)
-		//append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
-	}
+	mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
+	texture := read_image(read_file("assets/f22.png"))
+	read_mesh(read_file("assets/f22.obj"), &mesh)
 
 	renderer := create_renderer(window.dim.x, window.dim.y)
 
@@ -93,7 +89,7 @@ main :: proc() {
 
 		clear(&renderer)
 
-		render_mesh(&renderer, mesh)
+		render_mesh(&renderer, mesh, texture)
 
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 
