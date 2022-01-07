@@ -6,6 +6,8 @@ import "core:strconv"
 read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 	input_left := string(file_data)
 
+	tex_coords := make([dynamic][2]f32, context.temp_allocator)
+
 	for len(input_left) > 0 {
 
 		line_end := strings.index_any(input_left, "\r\n")
@@ -25,7 +27,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 			return num, input_left
 		}
 
-		read_face_entry :: proc(input: string, one_past_end: int) -> (int, string) {
+		read_face_entry :: proc(input: string, one_past_end: int) -> ([2]int, string) {
 			input_left := input
 			assert(one_past_end != -1)
 			entry := input_left[:one_past_end]
@@ -50,32 +52,56 @@ read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 				return num, input_left
 			}
 
-			num: int
-			num, entry = read_one_number(entry)
+			num1, num2: int
+			num1, entry = read_one_number(entry)
+			num2, entry = read_one_number(entry)
 
-			return num, input_left
+			return [2]int{num1, num2}, input_left
 		}
 
 		if len(line) >= 2 {
+
 			first_2 := line[:2]
 			line = line[2:]
+
 			switch first_2 {
+
 			case "v ":
 				vertex: [3]f32
 				vertex.x, line = parse_f32(line, strings.index_rune(line, ' '))
 				vertex.y, line = parse_f32(line, strings.index_rune(line, ' '))
 				vertex.z, line = parse_f32(line, len(line))
 				append(&mesh.vertices, vertex)
+
+			case "vt":
+				line := line[1:]
+				tex: [2]f32
+				tex.x, line = parse_f32(line, strings.index_rune(line, ' '))
+				tex.y, line = parse_f32(line, len(line))
+				append(&tex_coords, tex)
+
 			case "f ":
+				face_entries: [3][2]int
+				face_entries[0], line = read_face_entry(line, strings.index_rune(line, ' '))
+				face_entries[1], line = read_face_entry(line, strings.index_rune(line, ' '))
+				face_entries[2], line = read_face_entry(line, len(line))
+
 				face: Face
-				face.indices.x, line = read_face_entry(line, strings.index_rune(line, ' '))
-				face.indices.y, line = read_face_entry(line, strings.index_rune(line, ' '))
-				face.indices.z, line = read_face_entry(line, len(line))
-				face.indices -= 1
+
+				face.indices[0] = face_entries[0][0] - 1
+				face.indices[1] = face_entries[1][0] - 1
+				face.indices[2] = face_entries[2][0] - 1
+
+				face.texture[0] = tex_coords[face_entries[0][1] - 1]
+				face.texture[1] = tex_coords[face_entries[1][1] - 1]
+				face.texture[2] = tex_coords[face_entries[2][1] - 1]
+
 				face.color = 0.2
 				face.color.a = 1
+
 				append(&mesh.faces, face)
 			}
+
 		}
 
 		for len(input_left) > 0 && (input_left[0] == '\r' || input_left[0] == '\n') {

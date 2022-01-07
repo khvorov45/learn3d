@@ -12,10 +12,10 @@ main :: proc() {
 	mesh.scale = 1
 	mesh.rotation = [3]f32{-0.239999965, -0.300000012, 0.00000000}
 	{
-		mesh_file, ok := os.read_entire_file("assets/f22.obj")
+		mesh_file, ok := os.read_entire_file("assets/cube.obj")
 		assert(ok)
-		//read_mesh(mesh_file, &mesh)
-		append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
+		read_mesh(mesh_file, &mesh)
+		//append_box(&mesh, [3]f32{-1, -1, -1}, [3]f32{2, 2, 2})
 	}
 
 	renderer := create_renderer(window.dim.x, window.dim.y)
