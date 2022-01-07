@@ -4,6 +4,7 @@ import "core:math"
 import "core:math/linalg"
 import "core:builtin"
 import "core:slice"
+import "core:os"
 
 Renderer :: struct {
 	pixels:               []u32,
@@ -11,8 +12,9 @@ Renderer :: struct {
 	options:              bit_set[DisplayOption],
 	transformed_vertices: [dynamic][4]f32,
 	face_depths:          [dynamic]FaceDepth,
-	texture:              []u32,
+	texture:              [^]u32,
 	texture_dim:          [2]int,
+	texture_pitch:        int,
 }
 
 FaceDepth :: struct {
@@ -48,19 +50,11 @@ create_renderer :: proc(width, height: int) -> Renderer {
 	renderer.pixels = make([]u32, width * height)
 	renderer.pixels_dim = [2]int{width, height}
 	renderer.options = {.BackfaceCull, .FilledTriangles}
-	renderer.texture_dim = [2]int{64, 64}
-	renderer.texture = make([]u32, renderer.texture_dim.x * renderer.texture_dim.y)
-	for row in 0 ..< renderer.texture_dim.y {
-		for col in 0 ..< renderer.texture_dim.x {
-			color: u32 = 0xFFFF0000
-			if row % 16 == 0 || col % 16 == 0 {
-				color = 0xFF00FF00
-			}
-			renderer.texture[row * renderer.texture_dim.x + col] = color
-		}
-	}
-	renderer.texture_dim = REDBRICK_TEXTURE_DIM
-	renderer.texture = (cast([^]u32)&REDBRICK_TEXTURE)[:REDBRICK_TEXTURE_DIM.x * REDBRICK_TEXTURE_DIM.y]
+
+	texture_file, ok := os.read_entire_file("assets/cube.png")
+	assert(ok)
+	renderer.texture, renderer.texture_dim, renderer.texture_pitch = read_image(texture_file)
+
 	return renderer
 }
 
@@ -356,7 +350,7 @@ draw_triangle :: proc(
 
 					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
 
-					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
+					texel_index := round(tex_coord_px.y) * renderer.texture_pitch + round(tex_coord_px.x)
 					tex_color := renderer.texture[texel_index]
 
 					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)
@@ -415,7 +409,7 @@ draw_triangle :: proc(
 
 					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
 
-					texel_index := round(tex_coord_px.y) * renderer.texture_dim.x + round(tex_coord_px.x)
+					texel_index := round(tex_coord_px.y) * renderer.texture_pitch + round(tex_coord_px.x)
 					tex_color := renderer.texture[texel_index]
 
 					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, tex_color)

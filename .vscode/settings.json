@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "abgr",
     "ARGB",
     "DEFAULTTOPRIMARY",
     "HREDRAW",
@@ -18,6 +19,7 @@
     "odinfmt",
     "println",
     "RALT",
+    "rgba",
     "RSHIFT",
     "SRCCOPY",
     "strconv",
