@@ -57,71 +57,62 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 	event: sdl.Event
 	for sdl.PollEvent(&event) != 0 {
+
 		#partial switch event.type {
+
 		case .QUIT:
 			window.is_running = false
+
 		case .KEYDOWN, .KEYUP:
 			ended_down := event.type == .KEYDOWN
 			#partial switch event.key.keysym.sym {
 			case .RETURN:
-				input.enter.ended_down = ended_down
-				input.enter.half_transition_count += 1
+				record_key(input, .Enter, ended_down)
 			case .RALT:
-				input.alt_r.ended_down = ended_down
-				input.alt_r.half_transition_count += 1
+				record_key(input, .AltR, ended_down)
 			case .W:
-				input.W.ended_down = ended_down
-				input.W.half_transition_count += 1
+				record_key(input, .W, ended_down)
 			case .A:
-				input.A.ended_down = ended_down
-				input.A.half_transition_count += 1
+				record_key(input, .A, ended_down)
 			case .S:
-				input.S.ended_down = ended_down
-				input.S.half_transition_count += 1
+				record_key(input, .S, ended_down)
 			case .D:
-				input.D.ended_down = ended_down
-				input.D.half_transition_count += 1
+				record_key(input, .D, ended_down)
 			case .Q:
-				input.Q.ended_down = ended_down
-				input.Q.half_transition_count += 1
+				record_key(input, .Q, ended_down)
 			case .E:
-				input.E.ended_down = ended_down
-				input.E.half_transition_count += 1
+				record_key(input, .E, ended_down)
 			case .NUM1:
-				input.digit1.ended_down = ended_down
-				input.digit1.half_transition_count += 1
+				record_key(input, .Digit1, ended_down)
 			case .NUM2:
-				input.digit2.ended_down = ended_down
-				input.digit2.half_transition_count += 1
+				record_key(input, .Digit2, ended_down)
 			case .NUM3:
-				input.digit3.ended_down = ended_down
-				input.digit3.half_transition_count += 1
+				record_key(input, .Digit3, ended_down)
 			case .NUM4:
-				input.digit4.ended_down = ended_down
-				input.digit4.half_transition_count += 1
+				record_key(input, .Digit4, ended_down)
 			case .NUM5:
-				input.digit5.ended_down = ended_down
-				input.digit5.half_transition_count += 1
+				record_key(input, .Digit5, ended_down)
 			case .NUM6:
-				input.digit6.ended_down = ended_down
-				input.digit6.half_transition_count += 1
+				record_key(input, .Digit6, ended_down)
 			case .NUM7:
-				input.digit7.ended_down = ended_down
-				input.digit7.half_transition_count += 1
+				record_key(input, .Digit7, ended_down)
 			case .NUM8:
-				input.digit8.ended_down = ended_down
-				input.digit8.half_transition_count += 1
+				record_key(input, .Digit8, ended_down)
 			case .NUM9:
-				input.digit9.ended_down = ended_down
-				input.digit9.half_transition_count += 1
+				record_key(input, .Digit9, ended_down)
 			case .NUM0:
-				input.digit0.ended_down = ended_down
-				input.digit0.half_transition_count += 1
+				record_key(input, .Digit0, ended_down)
 			case .LSHIFT, .RSHIFT:
-				input.shift.ended_down = ended_down
-				input.shift.half_transition_count += 1
+				record_key(input, .Shift, ended_down)
+			case .SPACE:
+				record_key(input, .Space, ended_down)
+			case .LCTRL, .RCTRL:
+				record_key(input, .Ctrl, ended_down)
 			}
+
+
 		}
+
 	}
 
 	sdl.GetWindowSize(

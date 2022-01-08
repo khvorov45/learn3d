@@ -13,7 +13,7 @@ Renderer :: struct {
 	vertices_camera_space: [dynamic][4]f32,
 	z_buffer:              []f32,
 	camera_pos:            [3]f32,
-	camera_axes:           [3][3]f32,
+	camera_rotation:       [3]f32,
 }
 
 FaceDepth :: struct {
@@ -56,7 +56,6 @@ create_renderer :: proc(width, height: int) -> Renderer {
 		pixels_dim = [2]int{width, height},
 		options = {.BackfaceCull, .FilledTriangles},
 		z_buffer = make([]f32, width * height),
-		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
 	}
 	clear(&renderer)
 	return renderer
@@ -68,6 +67,22 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 	} else {
 		renderer.options |= {option}
 	}
+}
+
+get_rotated_axes :: proc(rotation: [3]f32) -> [3][3]f32 {
+	forward := [3]f32{0, 0, 1}
+	forward = rotate_x(forward, rotation.x)
+	forward = rotate_y(forward, rotation.y)
+
+	up := [3]f32{0, 1, 0}
+	up = rotate_x(up, rotation.x)
+	up = rotate_z(up, rotation.z)
+
+	right := [3]f32{1, 0, 0}
+	right = rotate_y(right, rotation.y)
+	right = rotate_z(right, rotation.z)
+
+	return [3][3]f32{right, up, forward}
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
@@ -84,11 +99,8 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	world_transform := translation4 * rotation4 * scale4
 
-	camera_transform := look_direction(
-		renderer.camera_pos,
-		renderer.camera_axes.z,
-		renderer.camera_axes.y,
-	)
+	camera_axes := get_rotated_axes(renderer.camera_rotation)
+	camera_transform := look_direction(renderer.camera_pos, camera_axes.z, camera_axes.y)
 
 	model_to_camera_transform := camera_transform * world_transform
 
@@ -267,9 +279,8 @@ draw_triangle :: proc(
 				for col := x1_cur; col < x2_cur; col += 1 {
 
 					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
-					px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
 
-					if px_index >= 0 && px_index < px_count {
+					if between(px_coord, [2]int{0, 0}, renderer.pixels_dim - 1) {
 
 						point := [2]f32{col, row}
 						ap := point - top
@@ -282,6 +293,7 @@ draw_triangle :: proc(
 						one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
 						this_w := 1 / one_over_w
 
+						px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
 						if renderer.z_buffer[px_index] > this_w {
 
 							renderer.z_buffer[px_index] = this_w
@@ -341,9 +353,8 @@ draw_triangle :: proc(
 				for col := x1_cur; col < x2_cur; col += 1 {
 
 					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
-					px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
 
-					if px_index >= 0 && px_index < px_count {
+					if between(px_coord, [2]int{0, 0}, renderer.pixels_dim - 1) {
 
 						point := [2]f32{col, row}
 						ap := point - top
@@ -356,6 +367,7 @@ draw_triangle :: proc(
 						one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
 						this_w := 1 / one_over_w
 
+						px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
 						if renderer.z_buffer[px_index] > this_w {
 
 							renderer.z_buffer[px_index] = this_w

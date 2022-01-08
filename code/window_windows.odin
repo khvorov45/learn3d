@@ -30,7 +30,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	window_class.wnd_proc = win32.Wnd_Proc(window_proc)
 	window_class.instance = win32.Hinstance(window_instance)
 	window_class.class_name = cstring(raw_data(window_class_name))
-	window_class.background = win32.Hbrush(uintptr(COLOR_WINDOW + 1))
+	window_class.background = nil
 	window_class.cursor = win32.load_cursor_a(nil, win32.IDC_ARROW)
 
 	assert(win32.register_class_ex_a(&window_class) != 0)
@@ -116,68 +116,54 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 	for win32.peek_message_a(&message, hwnd, 0, 0, 1) {
 
 		switch message.message {
+
 		case win32.WM_KEYDOWN, win32.WM_SYSKEYDOWN, win32.WM_KEYUP, win32.WM_SYSKEYUP:
 			ended_down := (message.lparam & (1 << 31)) == 0
 			switch message.wparam {
 			case win32.VK_RETURN:
-				input.enter.ended_down = ended_down
-				input.enter.half_transition_count += 1
+				record_key(input, .Enter, ended_down)
 			case win32.VK_MENU:
 				if message.lparam & (1 << 24) != 0 {
-					input.alt_r.ended_down = ended_down
-					input.alt_r.half_transition_count += 1
+					record_key(input, .AltR, ended_down)
 				}
+			case win32.VK_SPACE:
+				record_key(input, .Space, ended_down)
+			case win32.VK_CONTROL:
+				record_key(input, .Ctrl, ended_down)
 			case win32.VK_SHIFT:
-				input.shift.ended_down = ended_down
-				input.shift.half_transition_count += 1
+				record_key(input, .Shift, ended_down)
 			case 'W':
-				input.W.ended_down = ended_down
-				input.W.half_transition_count += 1
+				record_key(input, .W, ended_down)
 			case 'A':
-				input.A.ended_down = ended_down
-				input.A.half_transition_count += 1
+				record_key(input, .A, ended_down)
 			case 'S':
-				input.S.ended_down = ended_down
-				input.S.half_transition_count += 1
+				record_key(input, .S, ended_down)
 			case 'D':
-				input.D.ended_down = ended_down
-				input.D.half_transition_count += 1
+				record_key(input, .D, ended_down)
 			case 'Q':
-				input.Q.ended_down = ended_down
-				input.Q.half_transition_count += 1
+				record_key(input, .Q, ended_down)
 			case 'E':
-				input.E.ended_down = ended_down
-				input.E.half_transition_count += 1
+				record_key(input, .E, ended_down)
 			case '1':
-				input.digit1.ended_down = ended_down
-				input.digit1.half_transition_count += 1
+				record_key(input, .Digit1, ended_down)
 			case '2':
-				input.digit2.ended_down = ended_down
-				input.digit2.half_transition_count += 1
+				record_key(input, .Digit2, ended_down)
 			case '3':
-				input.digit3.ended_down = ended_down
-				input.digit3.half_transition_count += 1
+				record_key(input, .Digit3, ended_down)
 			case '4':
-				input.digit4.ended_down = ended_down
-				input.digit4.half_transition_count += 1
+				record_key(input, .Digit4, ended_down)
 			case '5':
-				input.digit5.ended_down = ended_down
-				input.digit5.half_transition_count += 1
+				record_key(input, .Digit5, ended_down)
 			case '6':
-				input.digit6.ended_down = ended_down
-				input.digit6.half_transition_count += 1
+				record_key(input, .Digit6, ended_down)
 			case '7':
-				input.digit7.ended_down = ended_down
-				input.digit7.half_transition_count += 1
+				record_key(input, .Digit7, ended_down)
 			case '8':
-				input.digit8.ended_down = ended_down
-				input.digit8.half_transition_count += 1
+				record_key(input, .Digit8, ended_down)
 			case '9':
-				input.digit9.ended_down = ended_down
-				input.digit9.half_transition_count += 1
+				record_key(input, .Digit9, ended_down)
 			case '0':
-				input.digit0.ended_down = ended_down
-				input.digit0.half_transition_count += 1
+				record_key(input, .Digit0, ended_down)
 			}
 
 		case:

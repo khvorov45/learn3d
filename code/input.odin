@@ -1,12 +1,15 @@
 package learn3d
 
-import "core:reflect"
+Input :: struct {
+	keys: [KeyID.Count]Key,
+}
 
 //odinfmt: disable
-Input :: struct {
-	alt_r, enter, shift,
+KeyID :: enum {
+	AltR, Enter, Shift, Space, Ctrl,
 	W, A, S, D, Q, E,
-	digit1, digit2, digit3, digit4, digit5, digit6, digit7, digit8, digit9, digit0: Key,
+	Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Digit0,
+	Count,
 }
 //odinfmt: enable
 
@@ -16,16 +19,13 @@ Key :: struct {
 }
 
 clear_half_transitions :: proc(input: ^Input) {
-	for name in reflect.struct_field_names(Input) {
-		val := reflect.struct_field_value_by_name(input^, name)
-		switch v in &val {
-		case Key:
-			v.half_transition_count = 0
-		}
+	for key in &input.keys {
+		key.half_transition_count = 0
 	}
 }
 
-was_pressed :: proc(key: Key) -> bool {
+was_pressed :: proc(input: Input, key_id: KeyID) -> bool {
+	key := input.keys[key_id]
 	result := false
 	if key.half_transition_count >= 2 {
 		result = true
@@ -33,4 +33,9 @@ was_pressed :: proc(key: Key) -> bool {
 		result = key.ended_down
 	}
 	return result
+}
+
+record_key :: proc(input: ^Input, key_id: KeyID, ended_down: bool) {
+	input.keys[key_id].ended_down = ended_down
+	input.keys[key_id].half_transition_count += 1
 }

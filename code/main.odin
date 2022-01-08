@@ -47,53 +47,56 @@ main :: proc() {
 		// SECTION Update
 		//
 
-		if input.alt_r.ended_down && was_pressed(input.enter) {
+		if input.keys[KeyID.AltR].ended_down && was_pressed(input, .Enter) {
 			toggle_fullscreen(&window)
 		}
 
+		camera_axes := get_rotated_axes(renderer.camera_rotation)
 		speed: f32 = 0.02
-		if input.shift.ended_down {
+		if input.keys[KeyID.Shift].ended_down {
 			speed *= 5
 		}
-		if input.A.ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.x
-			//mesh.rotation += [3]f32{0.0, rotate_speed, 0.0}
+		if input.keys[KeyID.A].ended_down {
+			renderer.camera_pos -= speed * camera_axes.x
 		}
-		if input.D.ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.x
-			//mesh.rotation -= [3]f32{0.0, rotate_speed, 0.0}
+		if input.keys[KeyID.D].ended_down {
+			renderer.camera_pos += speed * camera_axes.x
 		}
-		if input.W.ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.z
-			//mesh.rotation += [3]f32{rotate_speed, 0.0, 0.0}
+		if input.keys[KeyID.W].ended_down {
+			renderer.camera_pos += speed * camera_axes.z
 		}
-		if input.S.ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.z
-			//mesh.rotation -= [3]f32{rotate_speed, 0.0, 0.0}
+		if input.keys[KeyID.S].ended_down {
+			renderer.camera_pos -= speed * camera_axes.z
 		}
-		if input.Q.ended_down {
-			//mesh.rotation += [3]f32{0.0, 0.0, rotate_speed}
+		if input.keys[KeyID.Q].ended_down {
+			renderer.camera_rotation.z += speed
 		}
-		if input.E.ended_down {
-			//mesh.rotation -= [3]f32{0.0, 0.0, rotate_speed}
+		if input.keys[KeyID.E].ended_down {
+			renderer.camera_rotation.z -= speed
+		}
+		if input.keys[KeyID.Space].ended_down {
+			renderer.camera_pos += speed * camera_axes.y
+		}
+		if input.keys[KeyID.Ctrl].ended_down {
+			renderer.camera_pos -= speed * camera_axes.y
 		}
 
-		if was_pressed(input.digit1) {
+		if was_pressed(input, .Digit1) {
 			toggle_option(&renderer, .FilledTriangles)
 		}
-		if was_pressed(input.digit2) {
+		if was_pressed(input, .Digit2) {
 			toggle_option(&renderer, .Wireframe)
 		}
-		if was_pressed(input.digit3) {
+		if was_pressed(input, .Digit3) {
 			toggle_option(&renderer, .Vertices)
 		}
-		if was_pressed(input.digit4) {
+		if was_pressed(input, .Digit4) {
 			toggle_option(&renderer, .Normals)
 		}
-		if was_pressed(input.digit5) {
+		if was_pressed(input, .Digit5) {
 			toggle_option(&renderer, .Midpoints)
 		}
-		if was_pressed(input.digit6) {
+		if was_pressed(input, .Digit6) {
 			toggle_option(&renderer, .BackfaceCull)
 		}
 
