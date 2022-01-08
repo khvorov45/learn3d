@@ -11,7 +11,7 @@ Renderer :: struct {
 	pixels_dim:           [2]int,
 	options:              bit_set[DisplayOption],
 	transformed_vertices: [dynamic][4]f32,
-	face_depths:          [dynamic]FaceDepth,
+	z_buffer:             []f32,
 }
 
 FaceDepth :: struct {
@@ -49,11 +49,13 @@ Texture :: struct {
 }
 
 create_renderer :: proc(width, height: int) -> Renderer {
-	renderer: Renderer
-	renderer.pixels = make([]u32, width * height)
-	renderer.pixels_dim = [2]int{width, height}
-	renderer.options = {.BackfaceCull, .FilledTriangles}
-
+	renderer := Renderer {
+		pixels = make([]u32, width * height),
+		pixels_dim = [2]int{width, height},
+		options = {.BackfaceCull, .FilledTriangles},
+		z_buffer = make([]f32, width * height),
+	}
+	clear(&renderer)
 	return renderer
 }
 
@@ -127,7 +129,6 @@ append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	builtin.clear(&renderer.transformed_vertices)
-	builtin.clear(&renderer.face_depths)
 
 	scale4 := scale(mesh.scale)
 
@@ -146,22 +147,6 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 		append(&renderer.transformed_vertices, vertex_transformed)
 	}
 
-	// NOTE(sen) Sort faces by depth
-	for face, face_index in mesh.faces {
-		sum_z: f32 = 0
-		for vi in face.indices {
-			vertex := renderer.transformed_vertices[vi]
-			sum_z += vertex.z
-		}
-		avg_z := sum_z / len(face.indices)
-		face_depth := FaceDepth{face_index, avg_z}
-		append(&renderer.face_depths, face_depth)
-	}
-	slice.sort_by(
-		renderer.face_depths[:],
-		proc(f1: FaceDepth, f2: FaceDepth) -> bool {return f1.depth > f2.depth},
-	)
-
 	// NOTE(sen) Draw triangles
 
 	width_over_height := f32(renderer.pixels_dim.x) / f32(renderer.pixels_dim.y)
@@ -169,9 +154,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	light_ray := linalg.normalize([3]f32{0, 0, 1})
 
-	for face_depth in renderer.face_depths {
-
-		face := mesh.faces[face_depth.face]
+	for face in mesh.faces {
 
 		vertices: [3][4]f32
 		for fi, vi in face.indices {
@@ -305,6 +288,8 @@ draw_triangle :: proc(
 	tex_mid *= one_over_w_mid
 	tex_bottom *= one_over_w_bottom
 
+	px_count := renderer.pixels_dim.y * renderer.pixels_dim.x
+
 	// NOTE(sen) Flat bottom
 	{
 		rise := mid.y - top.y
@@ -330,30 +315,43 @@ draw_triangle :: proc(
 
 				for col := x1_cur; col < x2_cur; col += 1 {
 
-					point := [2]f32{col, row}
-					ap := point - top
-					bp := point - mid
+					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
+					px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
 
-					alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
-					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
-					gamma := 1 - alpha - beta
+					if px_index >= 0 && px_index < px_count {
 
-					one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
-					this_w := 1 / one_over_w
+						point := [2]f32{col, row}
+						ap := point - top
+						bp := point - mid
 
-					tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
-					tex_coord01 *= this_w
+						alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
+						beta := linalg.cross(ap, ac) * one_over_twice_abc_area
+						gamma := 1 - alpha - beta
 
-					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+						one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
+						this_w := 1 / one_over_w
 
-					texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
-					tex_color32 := texture.memory[texel_index]
-					tex_color := color_to_4f32(tex_color32)
-					tex_shaded := tex_color * color
+						if renderer.z_buffer[px_index] > this_w {
 
-					result_color := color_to_u32argb(tex_shaded)
+							renderer.z_buffer[px_index] = this_w
 
-					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, result_color)
+							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+							tex_coord01 *= this_w
+
+							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+							texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+
+							tex_color32 := texture.memory[texel_index]
+							tex_color := color_to_4f32(tex_color32)
+							tex_shaded := tex_color * color
+
+							result_color := color_to_u32argb(tex_shaded)
+							renderer.pixels[px_index] = result_color
+
+						}
+
+					}
+
 				}
 
 				y_steps += 1
@@ -391,30 +389,43 @@ draw_triangle :: proc(
 
 				for col := x1_cur; col < x2_cur; col += 1 {
 
-					point := [2]f32{col, row}
-					ap := point - top
-					bp := point - mid
+					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
+					px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
 
-					alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
-					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
-					gamma := 1 - alpha - beta
+					if px_index >= 0 && px_index < px_count {
 
-					one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
-					this_w := 1 / one_over_w
+						point := [2]f32{col, row}
+						ap := point - top
+						bp := point - mid
 
-					tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
-					tex_coord01 *= this_w
+						alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
+						beta := linalg.cross(ap, ac) * one_over_twice_abc_area
+						gamma := 1 - alpha - beta
 
-					tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+						one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
+						this_w := 1 / one_over_w
 
-					texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
-					tex_color32 := texture.memory[texel_index]
-					tex_color := color_to_4f32(tex_color32)
-					tex_shaded := tex_color * color
+						if renderer.z_buffer[px_index] > this_w {
 
-					result_color := color_to_u32argb(tex_shaded)
+							renderer.z_buffer[px_index] = this_w
 
-					draw_pixel(renderer, [2]int{int(math.ceil(col)), int(math.ceil(row))}, result_color)
+							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+							tex_coord01 *= this_w
+
+							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+							texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+
+							tex_color32 := texture.memory[texel_index]
+							tex_color := color_to_4f32(tex_color32)
+							tex_shaded := tex_color * color
+
+							result_color := color_to_u32argb(tex_shaded)
+							renderer.pixels[px_index] = result_color
+
+						}
+
+					}
+
 				}
 
 				y_steps += 1
@@ -468,6 +479,9 @@ rotate_axis_aligned :: proc(vec: [3]f32, angles: [3]f32) -> [3]f32 {
 clear :: proc(renderer: ^Renderer) {
 	for pixel in &renderer.pixels {
 		pixel = 0
+	}
+	for z_val in &renderer.z_buffer {
+		z_val = math.inf_f32(1)
 	}
 }
 
