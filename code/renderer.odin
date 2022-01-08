@@ -29,8 +29,8 @@ DisplayOption :: enum {
 }
 
 Mesh :: struct {
-	vertices:    [dynamic][3]f32,
-	faces:       [dynamic]Face,
+	vertices:    [][3]f32,
+	faces:       []Face,
 	rotation:    [3]f32,
 	scale:       [3]f32,
 	translation: [3]f32,
@@ -65,65 +65,6 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 	} else {
 		renderer.options |= {option}
 	}
-}
-
-append_box :: proc(mesh: ^Mesh, bottomleft: [3]f32, dim: [3]f32) {
-
-	v0 := bottomleft + [3]f32{0, dim.y, 0}
-	v1 := bottomleft + [3]f32{dim.x, dim.y, 0}
-	v2 := bottomleft + [3]f32{0, 0, 0}
-	v3 := bottomleft + [3]f32{dim.x, 0, 0}
-	v4 := v0 + [3]f32{0, 0, dim.z}
-	v5 := v1 + [3]f32{0, 0, dim.z}
-	v6 := v2 + [3]f32{0, 0, dim.z}
-	v7 := v3 + [3]f32{0, 0, dim.z}
-
-	first_vertex := len(mesh.vertices)
-
-	front1 := [3]int{0, 1, 2} + first_vertex
-	front2 := [3]int{2, 1, 3} + first_vertex
-
-	left1 := [3]int{0, 6, 4} + first_vertex
-	left2 := [3]int{0, 2, 6} + first_vertex
-
-	right1 := [3]int{1, 5, 7} + first_vertex
-	right2 := [3]int{3, 1, 7} + first_vertex
-
-	top1 := [3]int{0, 4, 1} + first_vertex
-	top2 := [3]int{1, 4, 5} + first_vertex
-
-	bottom1 := [3]int{2, 3, 6} + first_vertex
-	bottom2 := [3]int{3, 7, 6} + first_vertex
-
-	back1 := [3]int{5, 4, 6} + first_vertex
-	back2 := [3]int{5, 6, 7} + first_vertex
-
-	append(&mesh.vertices, v0)
-	append(&mesh.vertices, v1)
-	append(&mesh.vertices, v2)
-	append(&mesh.vertices, v3)
-	append(&mesh.vertices, v4)
-	append(&mesh.vertices, v5)
-	append(&mesh.vertices, v6)
-	append(&mesh.vertices, v7)
-
-	append(&mesh.faces, Face{front1, [4]f32{1, 0, 0, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{front2, [4]f32{1, 0, 0, 1}, [3][2]f32{{0, 0}, {1, 1}, {1, 0}}})
-
-	append(&mesh.faces, Face{left1, [4]f32{0, 1, 0, 1}, [3][2]f32{{1, 1}, {0, 0}, {0, 1}}})
-	append(&mesh.faces, Face{left2, [4]f32{0, 1, 0, 1}, [3][2]f32{{1, 1}, {1, 0}, {0, 0}}})
-
-	append(&mesh.faces, Face{right1, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {1, 0}}})
-	append(&mesh.faces, Face{right2, [4]f32{0, 0, 1, 1}, [3][2]f32{{0, 0}, {0, 1}, {1, 0}}})
-
-	append(&mesh.faces, Face{top1, [4]f32{1, 1, 0, 1}, [3][2]f32{{0, 0}, {0, 1}, {1, 0}}})
-	append(&mesh.faces, Face{top2, [4]f32{1, 1, 0, 1}, [3][2]f32{{1, 0}, {0, 1}, {1, 1}}})
-
-	append(&mesh.faces, Face{bottom1, [4]f32{1, 0, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {0, 0}}})
-	append(&mesh.faces, Face{bottom2, [4]f32{1, 0, 1, 1}, [3][2]f32{{1, 1}, {1, 0}, {0, 0}}})
-
-	append(&mesh.faces, Face{back1, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 1}, {1, 0}}})
-	append(&mesh.faces, Face{back2, [4]f32{0, 1, 1, 1}, [3][2]f32{{0, 1}, {1, 0}, {0, 0}}})
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {

@@ -3,10 +3,16 @@ package learn3d
 import "core:strings"
 import "core:strconv"
 
-read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
+read_obj :: proc(file_data: []u8, vertices: ^[dynamic][3]f32, faces: ^[dynamic]Face) -> (
+	[][3]f32,
+	[]Face,
+) {
 	input_left := string(file_data)
 
 	tex_coords := make([dynamic][2]f32, context.temp_allocator)
+
+	start_vertex := len(vertices)
+	start_face := len(faces)
 
 	for len(input_left) > 0 {
 
@@ -71,7 +77,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 				vertex.x, line = parse_f32(line, strings.index_rune(line, ' '))
 				vertex.y, line = parse_f32(line, strings.index_rune(line, ' '))
 				vertex.z, line = parse_f32(line, len(line))
-				append(&mesh.vertices, vertex)
+				append(vertices, vertex)
 
 			case "vt":
 				line := line[1:]
@@ -98,7 +104,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 
 				face.color = 1
 
-				append(&mesh.faces, face)
+				append(faces, face)
 			}
 
 		}
@@ -108,5 +114,7 @@ read_mesh :: proc(file_data: []u8, mesh: ^Mesh) {
 		}
 
 	}
+
+	return vertices[start_vertex:], faces[start_face:]
 
 }

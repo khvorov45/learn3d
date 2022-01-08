@@ -3,16 +3,25 @@ package learn3d
 import "core:time"
 import "core:os"
 import "core:fmt"
+import "core:mem"
 
 main :: proc() {
+
+	vertex_storage: [dynamic][3]f32
+	face_storage: [dynamic]Face
 
 	window := create_window("learn3d", 1280, 720)
 
 	mesh: Mesh
 	mesh.scale = 1
 	mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
+	mesh.vertices, mesh.faces = read_obj(
+		read_file("assets/f22.obj"),
+		&vertex_storage,
+		&face_storage,
+	)
 	texture := read_image(read_file("assets/f22.png"))
-	read_mesh(read_file("assets/f22.obj"), &mesh)
+
 
 	renderer := create_renderer(window.dim.x, window.dim.y)
 
