@@ -22,13 +22,15 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	window_instance := win32.get_module_handle_a(nil)
 	assert(window_instance != nil)
 
+	COLOR_WINDOW :: 5
+
 	window_class: win32.Wnd_Class_Ex_A
 	window_class.size = size_of(window_class)
 	window_class.style = win32.CS_HREDRAW | win32.CS_VREDRAW
 	window_class.wnd_proc = win32.Wnd_Proc(window_proc)
 	window_class.instance = win32.Hinstance(window_instance)
 	window_class.class_name = cstring(raw_data(window_class_name))
-	window_class.background = win32.COLOR_BACKGROUND
+	window_class.background = win32.Hbrush(uintptr(COLOR_WINDOW + 1))
 	window_class.cursor = win32.load_cursor_a(nil, win32.IDC_ARROW)
 
 	assert(win32.register_class_ex_a(&window_class) != 0)

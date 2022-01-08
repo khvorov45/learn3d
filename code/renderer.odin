@@ -7,11 +7,13 @@ import "core:slice"
 import "core:os"
 
 Renderer :: struct {
-	pixels:               []u32,
-	pixels_dim:           [2]int,
-	options:              bit_set[DisplayOption],
-	transformed_vertices: [dynamic][4]f32,
-	z_buffer:             []f32,
+	pixels:                []u32,
+	pixels_dim:            [2]int,
+	options:               bit_set[DisplayOption],
+	vertices_camera_space: [dynamic][4]f32,
+	z_buffer:              []f32,
+	camera_pos:            [3]f32,
+	camera_axes:           [3][3]f32,
 }
 
 FaceDepth :: struct {
@@ -54,6 +56,7 @@ create_renderer :: proc(width, height: int) -> Renderer {
 		pixels_dim = [2]int{width, height},
 		options = {.BackfaceCull, .FilledTriangles},
 		z_buffer = make([]f32, width * height),
+		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
 	}
 	clear(&renderer)
 	return renderer
@@ -69,7 +72,7 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
-	builtin.clear(&renderer.transformed_vertices)
+	builtin.clear(&renderer.vertices_camera_space)
 
 	scale4 := scale(mesh.scale)
 
@@ -77,15 +80,22 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 	rotation4 *= rotation([3]f32{0, 1, 0}, mesh.rotation.y)
 	rotation4 *= rotation([3]f32{0, 0, 1}, mesh.rotation.z)
 
-	camera_pos := [3]f32{0, 0, -3.5}
-	translation4 := translation(mesh.translation - camera_pos)
+	translation4 := translation(mesh.translation)
 
-	transform := translation4 * rotation4 * scale4
+	world_transform := translation4 * rotation4 * scale4
 
-	// NOTE(sen) Transform the vertices
+	camera_transform := look_direction(
+		renderer.camera_pos,
+		renderer.camera_axes.z,
+		renderer.camera_axes.y,
+	)
+
+	model_to_camera_transform := camera_transform * world_transform
+
+	// NOTE(sen) Transfrom from model to camera
 	for vertex in mesh.vertices {
-		vertex_transformed := transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
-		append(&renderer.transformed_vertices, vertex_transformed)
+		vertex_camera := model_to_camera_transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
+		append(&renderer.vertices_camera_space, vertex_camera)
 	}
 
 	// NOTE(sen) Draw triangles
@@ -99,7 +109,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 		vertices: [3][4]f32
 		for fi, vi in face.indices {
-			vert := renderer.transformed_vertices[fi]
+			vert := renderer.vertices_camera_space[fi]
 			vertices[vi] = [4]f32{vert.x, vert.y, vert.z, 1}
 		}
 
@@ -620,6 +630,41 @@ perspective :: proc(width_over_height, fov, z_far, z_near: f32) -> matrix[4, 4]f
 	result[3, 2] = 1
 
 	return result
+}
+
+look_at :: proc(eye, target, up: [3]f32) -> matrix[4, 4]f32 {
+
+	eye_z := linalg.normalize(target - eye)
+	eye_x := linalg.normalize(linalg.cross(up, eye_z))
+	eye_y := linalg.cross(eye_z, eye_x)
+
+	//odinfmt: disable
+	view := matrix[4, 4]f32{
+		eye_x.x, eye_x.y, eye_x.z, -linalg.dot(eye_x, eye),
+		eye_y.x, eye_y.y, eye_y.z, -linalg.dot(eye_y, eye),
+		eye_z.x, eye_z.y, eye_z.z, -linalg.dot(eye_z, eye),
+		0, 0, 0, 1,
+	}
+	//odinfmt: enable
+
+	return view
+}
+
+look_direction :: proc(eye, forward, up: [3]f32) -> matrix[4, 4]f32 {
+	eye_z := linalg.normalize(forward)
+	eye_x := linalg.normalize(linalg.cross(up, eye_z))
+	eye_y := linalg.cross(eye_z, eye_x)
+
+	//odinfmt: disable
+	view := matrix[4, 4]f32{
+		eye_x.x, eye_x.y, eye_x.z, -linalg.dot(eye_x, eye),
+		eye_y.x, eye_y.y, eye_y.z, -linalg.dot(eye_y, eye),
+		eye_z.x, eye_z.y, eye_z.z, -linalg.dot(eye_z, eye),
+		0, 0, 0, 1,
+	}
+	//odinfmt: enable
+
+	return view
 }
 
 to_radians :: proc(degrees: f32) -> f32 {

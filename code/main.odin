@@ -4,6 +4,7 @@ import "core:time"
 import "core:os"
 import "core:fmt"
 import "core:mem"
+import "core:math/linalg"
 
 main :: proc() {
 
@@ -14,14 +15,14 @@ main :: proc() {
 
 	mesh: Mesh
 	mesh.scale = 1
-	mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
+	//mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
 	mesh.vertices, mesh.faces = read_obj(
 		read_file("assets/f22.obj"),
 		&vertex_storage,
 		&face_storage,
 	)
+	mesh.translation.z += 3.5
 	texture := read_image(read_file("assets/f22.png"))
-
 
 	renderer := create_renderer(window.dim.x, window.dim.y)
 
@@ -50,27 +51,31 @@ main :: proc() {
 			toggle_fullscreen(&window)
 		}
 
-		rotate_speed: f32 = 0.02
+		speed: f32 = 0.02
 		if input.shift.ended_down {
-			rotate_speed *= 5
+			speed *= 5
 		}
 		if input.A.ended_down {
-			mesh.rotation += [3]f32{0.0, rotate_speed, 0.0}
+			renderer.camera_pos -= speed * renderer.camera_axes.x
+			//mesh.rotation += [3]f32{0.0, rotate_speed, 0.0}
 		}
 		if input.D.ended_down {
-			mesh.rotation -= [3]f32{0.0, rotate_speed, 0.0}
+			renderer.camera_pos += speed * renderer.camera_axes.x
+			//mesh.rotation -= [3]f32{0.0, rotate_speed, 0.0}
 		}
 		if input.W.ended_down {
-			mesh.rotation += [3]f32{rotate_speed, 0.0, 0.0}
+			renderer.camera_pos += speed * renderer.camera_axes.z
+			//mesh.rotation += [3]f32{rotate_speed, 0.0, 0.0}
 		}
 		if input.S.ended_down {
-			mesh.rotation -= [3]f32{rotate_speed, 0.0, 0.0}
+			renderer.camera_pos -= speed * renderer.camera_axes.z
+			//mesh.rotation -= [3]f32{rotate_speed, 0.0, 0.0}
 		}
 		if input.Q.ended_down {
-			mesh.rotation += [3]f32{0.0, 0.0, rotate_speed}
+			//mesh.rotation += [3]f32{0.0, 0.0, rotate_speed}
 		}
 		if input.E.ended_down {
-			mesh.rotation -= [3]f32{0.0, 0.0, rotate_speed}
+			//mesh.rotation -= [3]f32{0.0, 0.0, rotate_speed}
 		}
 
 		if was_pressed(input.digit1) {
