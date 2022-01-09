@@ -5,15 +5,21 @@ import "core:math/linalg"
 import "core:builtin"
 import "core:slice"
 import "core:os"
+import "core:mem"
 
 Renderer :: struct {
-	pixels:                []u32,
-	pixels_dim:            [2]int,
-	options:               bit_set[DisplayOption],
-	vertices_camera_space: [dynamic][4]f32,
-	z_buffer:              []f32,
-	camera_pos:            [3]f32,
-	camera_axes:           [3][3]f32,
+	pixels:                    []u32,
+	pixels_dim:                [2]int,
+	vertices:                  [][3]f32,
+	vertex_count:              int,
+	vertices_camera_space:     [][4]f32,
+	vertex_camera_space_count: int,
+	triangles:                 []Triangle,
+	triangle_count:            int,
+	z_buffer:                  []f32,
+	options:                   bit_set[DisplayOption],
+	camera_pos:                [3]f32,
+	camera_axes:               [3][3]f32,
 }
 
 FaceDepth :: struct {
@@ -32,13 +38,13 @@ DisplayOption :: enum {
 
 Mesh :: struct {
 	vertices:    [][3]f32,
-	faces:       []Face,
+	triangles:   []Triangle,
 	rotation:    [3]f32,
 	scale:       [3]f32,
 	translation: [3]f32,
 }
 
-Face :: struct {
+Triangle :: struct {
 	indices: [3]int,
 	color:   [4]f32,
 	texture: [3][2]f32,
@@ -50,13 +56,16 @@ Texture :: struct {
 	pitch:  int,
 }
 
-create_renderer :: proc(width, height: int) -> Renderer {
+create_renderer :: proc(width, height, max_vertices, max_triangles: int) -> Renderer {
 	renderer := Renderer {
 		pixels = make([]u32, width * height),
 		pixels_dim = [2]int{width, height},
 		options = {.BackfaceCull, .FilledTriangles},
 		z_buffer = make([]f32, width * height),
 		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
+		vertices = make([][3]f32, max_vertices),
+		vertices_camera_space = make([][4]f32, max_vertices),
+		triangles = make([]Triangle, max_triangles),
 	}
 	clear(&renderer)
 	return renderer
@@ -88,8 +97,6 @@ get_rotated_axes :: proc(rotation: [3]f32) -> [3][3]f32 {
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
-	builtin.clear(&renderer.vertices_camera_space)
-
 	scale4 := scale(mesh.scale)
 
 	rotation4 := rotation([3]f32{1, 0, 0}, mesh.rotation.x)
@@ -109,9 +116,11 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 	model_to_camera_transform := camera_transform * world_transform
 
 	// NOTE(sen) Transfrom from model to camera
+	face_offset := renderer.vertex_camera_space_count
 	for vertex in mesh.vertices {
 		vertex_camera := model_to_camera_transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
-		append(&renderer.vertices_camera_space, vertex_camera)
+		renderer.vertices_camera_space[renderer.vertex_camera_space_count] = vertex_camera
+		renderer.vertex_camera_space_count += 1
 	}
 
 	// NOTE(sen) Draw triangles
@@ -121,11 +130,11 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	light_ray := linalg.normalize([3]f32{0, 0, 1})
 
-	for face in mesh.faces {
+	for triangle in mesh.triangles {
 
 		vertices: [3][4]f32
-		for fi, vi in face.indices {
-			vert := renderer.vertices_camera_space[fi]
+		for fi, vi in triangle.indices {
+			vert := renderer.vertices_camera_space[fi + face_offset]
 			vertices[vi] = [4]f32{vert.x, vert.y, vert.z, 1}
 		}
 
@@ -161,9 +170,9 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 			}
 
 			if .FilledTriangles in renderer.options {
-				shaded_color := face.color
+				shaded_color := triangle.color
 				shaded_color.rgb *= light_normal_dot
-				draw_triangle(renderer, vertices_px, shaded_color, face.texture, og_zw, texture)
+				draw_triangle(renderer, vertices_px, shaded_color, triangle.texture, og_zw, texture)
 			}
 
 			if .Wireframe in renderer.options {
@@ -450,6 +459,7 @@ clear :: proc(renderer: ^Renderer) {
 	for z_val in &renderer.z_buffer {
 		z_val = math.inf_f32(1)
 	}
+	renderer.vertex_camera_space_count = 0
 }
 
 draw_rect :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {

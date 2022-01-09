@@ -8,28 +8,30 @@ import "core:math/linalg"
 
 main :: proc() {
 
-	vertex_storage: [dynamic][3]f32
-	face_storage: [dynamic]Face
-
-	input: Input
 	window := create_window("learn3d", 1280, 720)
+
+	renderer := create_renderer(window.dim.x, window.dim.y, 65536, 65536)
 
 	mesh: Mesh
 	mesh.scale = 1
-	//mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
-	mesh.vertices, mesh.faces = read_obj(
-		read_file("assets/f22.obj"),
-		&vertex_storage,
-		&face_storage,
-	)
 	mesh.translation.z += 3.5
-	texture := read_image(read_file("assets/f22.png"))
+	//mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
+	mesh.vertices, mesh.triangles = read_obj(
+		read_file("assets/f22.obj"),
+		renderer.vertices[renderer.vertex_count:],
+		renderer.triangles[renderer.triangle_count:],
+	)
 
-	renderer := create_renderer(window.dim.x, window.dim.y)
+	renderer.vertex_count += len(mesh.vertices)
+	renderer.triangle_count += len(mesh.triangles)
+
+	texture := read_image(read_file("assets/f22.png"))
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
 	target_frame_duration := time.Duration(target_frame_ns)
+
+	input: Input
 
 	for window.is_running {
 

@@ -3,16 +3,16 @@ package learn3d
 import "core:strings"
 import "core:strconv"
 
-read_obj :: proc(file_data: []u8, vertices: ^[dynamic][3]f32, faces: ^[dynamic]Face) -> (
+read_obj :: proc(file_data: []u8, vertices: [][3]f32, faces: []Triangle) -> (
 	[][3]f32,
-	[]Face,
+	[]Triangle,
 ) {
 	input_left := string(file_data)
 
 	tex_coords := make([dynamic][2]f32, context.temp_allocator)
 
-	start_vertex := len(vertices)
-	start_face := len(faces)
+	vertex_count := 0
+	triangle_count := 0
 
 	for len(input_left) > 0 {
 
@@ -77,7 +77,8 @@ read_obj :: proc(file_data: []u8, vertices: ^[dynamic][3]f32, faces: ^[dynamic]F
 				vertex.x, line = parse_f32(line, strings.index_rune(line, ' '))
 				vertex.y, line = parse_f32(line, strings.index_rune(line, ' '))
 				vertex.z, line = parse_f32(line, len(line))
-				append(vertices, vertex)
+				vertices[vertex_count] = vertex
+				vertex_count += 1
 
 			case "vt":
 				line := line[1:]
@@ -92,19 +93,20 @@ read_obj :: proc(file_data: []u8, vertices: ^[dynamic][3]f32, faces: ^[dynamic]F
 				face_entries[1], line = read_face_entry(line, strings.index_rune(line, ' '))
 				face_entries[2], line = read_face_entry(line, len(line))
 
-				face: Face
+				triangle: Triangle
 
-				face.indices[0] = face_entries[0][0] - 1
-				face.indices[1] = face_entries[1][0] - 1
-				face.indices[2] = face_entries[2][0] - 1
+				triangle.indices[0] = face_entries[0][0] - 1
+				triangle.indices[1] = face_entries[1][0] - 1
+				triangle.indices[2] = face_entries[2][0] - 1
 
-				face.texture[0] = tex_coords[face_entries[0][1] - 1]
-				face.texture[1] = tex_coords[face_entries[1][1] - 1]
-				face.texture[2] = tex_coords[face_entries[2][1] - 1]
+				triangle.texture[0] = tex_coords[face_entries[0][1] - 1]
+				triangle.texture[1] = tex_coords[face_entries[1][1] - 1]
+				triangle.texture[2] = tex_coords[face_entries[2][1] - 1]
 
-				face.color = 1
+				triangle.color = 1
 
-				append(faces, face)
+				faces[triangle_count] = triangle
+				triangle_count += 1
 			}
 
 		}
@@ -115,6 +117,6 @@ read_obj :: proc(file_data: []u8, vertices: ^[dynamic][3]f32, faces: ^[dynamic]F
 
 	}
 
-	return vertices[start_vertex:], faces[start_face:]
+	return vertices[:vertex_count], faces[:triangle_count]
 
 }
