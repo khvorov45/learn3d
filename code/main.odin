@@ -12,7 +12,7 @@ main :: proc() {
 	face_storage: [dynamic]Face
 
 	input: Input
-	window := create_window("learn3d", 1280, 720, &input)
+	window := create_window("learn3d", 1280, 720)
 
 	mesh: Mesh
 	mesh.scale = 1

@@ -22,7 +22,7 @@ PlatformWindow :: struct {
 	previous_placement: win32.Window_Placement,
 }
 
-create_window :: proc(title: string, width: int, height: int, input: ^Input) -> Window {
+create_window :: proc(title: string, width: int, height: int) -> Window {
 
 	window_class_name := title
 	window_name := window_class_name

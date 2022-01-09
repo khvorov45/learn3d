@@ -11,7 +11,7 @@ PlatformWindow :: struct {
 	texture_dim: [2]int,
 }
 
-create_window :: proc(title: string, width: int, height: int, input: ^Input) -> Window {
+create_window :: proc(title: string, width: int, height: int) -> Window {
 
 	assert(sdl.Init(sdl.INIT_EVERYTHING) == 0)
 
