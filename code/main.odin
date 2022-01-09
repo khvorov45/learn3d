@@ -11,7 +11,8 @@ main :: proc() {
 	vertex_storage: [dynamic][3]f32
 	face_storage: [dynamic]Face
 
-	window := create_window("learn3d", 1280, 720)
+	input: Input
+	window := create_window("learn3d", 1280, 720, &input)
 
 	mesh: Mesh
 	mesh.scale = 1
@@ -25,8 +26,6 @@ main :: proc() {
 	texture := read_image(read_file("assets/f22.png"))
 
 	renderer := create_renderer(window.dim.x, window.dim.y)
-
-	input: Input
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
@@ -51,34 +50,62 @@ main :: proc() {
 			toggle_fullscreen(&window)
 		}
 
-		camera_axes := get_rotated_axes(renderer.camera_rotation)
 		speed: f32 = 0.02
+		mouse_sensitivity: f32 = 0.01
 		if input.keys[KeyID.Shift].ended_down {
 			speed *= 5
 		}
+
+		// NOTE(sen) Rotate camera input
+		{
+			delta_z: f32 = 0
+			if input.keys[KeyID.Q].ended_down {
+				delta_z += speed
+			}
+			if input.keys[KeyID.E].ended_down {
+				delta_z -= speed
+			}
+			camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
+			renderer.camera_axes.x = camera_z_rotation * renderer.camera_axes.x
+			renderer.camera_axes.y = camera_z_rotation * renderer.camera_axes.y
+		}
+
+		{
+			camera_y_rotation := get_rotation3(
+				renderer.camera_axes.y,
+				input.cursor_delta.x * mouse_sensitivity,
+			)
+			renderer.camera_axes.x = camera_y_rotation * renderer.camera_axes.x
+			renderer.camera_axes.z = camera_y_rotation * renderer.camera_axes.z
+		}
+
+		{
+			camera_x_rotation := get_rotation3(
+				renderer.camera_axes.x,
+				input.cursor_delta.y * mouse_sensitivity,
+			)
+			renderer.camera_axes.y = camera_x_rotation * renderer.camera_axes.y
+			renderer.camera_axes.z = camera_x_rotation * renderer.camera_axes.z
+		}
+
+		// NOTE(sen) Move camera input
 		if input.keys[KeyID.A].ended_down {
-			renderer.camera_pos -= speed * camera_axes.x
+			renderer.camera_pos -= speed * renderer.camera_axes.x
 		}
 		if input.keys[KeyID.D].ended_down {
-			renderer.camera_pos += speed * camera_axes.x
+			renderer.camera_pos += speed * renderer.camera_axes.x
 		}
 		if input.keys[KeyID.W].ended_down {
-			renderer.camera_pos += speed * camera_axes.z
+			renderer.camera_pos += speed * renderer.camera_axes.z
 		}
 		if input.keys[KeyID.S].ended_down {
-			renderer.camera_pos -= speed * camera_axes.z
-		}
-		if input.keys[KeyID.Q].ended_down {
-			renderer.camera_rotation.z += speed
-		}
-		if input.keys[KeyID.E].ended_down {
-			renderer.camera_rotation.z -= speed
+			renderer.camera_pos -= speed * renderer.camera_axes.z
 		}
 		if input.keys[KeyID.Space].ended_down {
-			renderer.camera_pos += speed * camera_axes.y
+			renderer.camera_pos += speed * renderer.camera_axes.y
 		}
 		if input.keys[KeyID.Ctrl].ended_down {
-			renderer.camera_pos -= speed * camera_axes.y
+			renderer.camera_pos -= speed * renderer.camera_axes.y
 		}
 
 		if was_pressed(input, .Digit1) {
@@ -107,6 +134,8 @@ main :: proc() {
 		clear(&renderer)
 
 		render_mesh(&renderer, mesh, texture)
+
+		draw_rect(&renderer, input.cursor_pos, [2]f32{4, 4}, 0xFFFF00FF)
 
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 

@@ -3,6 +3,15 @@ package learn3d
 import "core:sys/win32"
 import "core:fmt"
 
+foreign import my_win32 "system:User32.lib"
+
+foreign my_win32 {
+	@(link_name = "ClipCursor")
+	clip_cursor :: proc(confine_rect: ^win32.Rect) -> win32.Bool ---
+	@(link_name = "ShowCursor")
+	show_cursor :: proc(show: win32.Bool) -> i32 ---
+}
+
 GlobalRunning := true
 
 PlatformWindow :: struct {
@@ -13,7 +22,7 @@ PlatformWindow :: struct {
 	previous_placement: win32.Window_Placement,
 }
 
-create_window :: proc(title: string, width: int, height: int) -> Window {
+create_window :: proc(title: string, width: int, height: int, input: ^Input) -> Window {
 
 	window_class_name := title
 	window_name := window_class_name
@@ -99,6 +108,36 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	previous_placement: win32.Window_Placement
 	previous_placement.length = size_of(previous_placement)
 
+	// NOTE(sen) Confine mouse to window
+	{
+		client_topleft := win32.Point{0, 0}
+		win32.client_to_screen(window, &client_topleft)
+		client_bottomright := win32.Point{i32(window_dim.x), i32(window_dim.y)}
+		win32.client_to_screen(window, &client_bottomright)
+
+		confine: win32.Rect
+		confine.left = client_topleft.x
+		confine.top = client_topleft.y
+		confine.right = client_bottomright.x
+		confine.bottom = client_bottomright.y
+		clip_cursor(&confine)
+	}
+	show_cursor(false)
+
+	// NOTE(sen) Register raw input mouse
+	{
+		HID_USAGE_PAGE_GENERIC :: 0x01
+		HID_USAGE_GENERIC_MOUSE :: 0x02
+		RIDEV_INPUTSINK :: 0x00000100
+
+		rid: win32.Raw_Input_Device
+		rid.usage_page = HID_USAGE_PAGE_GENERIC
+		rid.usage = HID_USAGE_GENERIC_MOUSE
+		rid.flags = RIDEV_INPUTSINK
+		rid.wnd_target = window
+		win32.register_raw_input_devices(&rid, 1, size_of(rid))
+	}
+
 	result := Window{
 		true,
 		false,
@@ -111,6 +150,8 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 poll_input :: proc(window: ^Window, input: ^Input) {
 
 	hwnd := window.platform.hwnd
+
+	input.cursor_delta = 0
 
 	message: win32.Msg
 	for win32.peek_message_a(&message, hwnd, 0, 0, 1) {
@@ -166,6 +207,24 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 				record_key(input, .Digit0, ended_down)
 			}
 
+		// NOTE(sen) Update mouse delta
+		case win32.WM_INPUT:
+			raw: win32.Raw_Input
+			size := u32(size_of(raw))
+
+			win32.get_raw_input_data(
+				(cast(^win32.Hrawinput)&message.lparam)^,
+				win32.RID_INPUT,
+				&raw,
+				&size,
+				size_of(win32.Raw_Input_Header),
+			)
+			if raw.header.kind == win32.RIM_TYPEMOUSE {
+				x_pos := raw.data.mouse.last_x
+				y_pos := raw.data.mouse.last_y
+				input.cursor_delta = [2]f32{f32(x_pos), f32(y_pos)}
+			}
+
 		case:
 			win32.translate_message(&message)
 			win32.dispatch_message_a(&message)
@@ -179,6 +238,15 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		win32.get_client_rect(window.platform.hwnd, &rect)
 		window.dim.y = int(rect.bottom - rect.top)
 		window.dim.x = int(rect.right - rect.left)
+	}
+
+	// NOTE(sen) Update mouse position
+	{
+		cursor_screen: win32.Point
+		win32.get_cursor_pos(&cursor_screen)
+		win32.screen_to_client(window.platform.hwnd, &cursor_screen)
+		cursor_client := [2]f32{f32(cursor_screen.x), f32(cursor_screen.y)}
+		input.cursor_pos = cursor_client
 	}
 
 	window.is_running = GlobalRunning

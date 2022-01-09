@@ -4,6 +4,7 @@
     "ARGB",
     "DEFAULTTOPRIMARY",
     "Hbrush",
+    "Hrawinput",
     "HREDRAW",
     "Hwnd",
     "icos",
@@ -23,6 +24,7 @@
     "RALT",
     "RCTRL",
     "rgba",
+    "RIDEV",
     "RSHIFT",
     "SRCCOPY",
     "strconv",
@@ -31,6 +33,8 @@
     "texel",
     "tprintf",
     "VREDRAW",
-    "wparam"
+    "wparam",
+    "xrel",
+    "yrel"
   ]
 }

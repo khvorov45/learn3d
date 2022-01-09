@@ -1,7 +1,9 @@
 package learn3d
 
 Input :: struct {
-	keys: [KeyID.Count]Key,
+	keys:         [KeyID.Count]Key,
+	cursor_pos:   [2]f32, // NOTE(sen) Bottom-up
+	cursor_delta: [2]f32,
 }
 
 //odinfmt: disable

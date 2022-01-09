@@ -11,7 +11,7 @@ PlatformWindow :: struct {
 	texture_dim: [2]int,
 }
 
-create_window :: proc(title: string, width: int, height: int) -> Window {
+create_window :: proc(title: string, width: int, height: int, input: ^Input) -> Window {
 
 	assert(sdl.Init(sdl.INIT_EVERYTHING) == 0)
 
@@ -44,6 +44,9 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	texture_dim := [2]int{width, height}
 	assert(texture != nil)
 
+	sdl.SetWindowMouseGrab(window, true)
+	sdl.SetRelativeMouseMode(true)
+
 	result := Window{
 		true,
 		false,
@@ -54,6 +57,8 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 }
 
 poll_input :: proc(window: ^Window, input: ^Input) {
+
+	input.cursor_delta = 0
 
 	event: sdl.Event
 	for sdl.PollEvent(&event) != 0 {
@@ -110,6 +115,8 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 				record_key(input, .Ctrl, ended_down)
 			}
 
+		case .MOUSEMOTION:
+			input.cursor_delta = [2]f32{f32(event.motion.xrel), f32(event.motion.yrel)}
 
 		}
 
@@ -120,6 +127,13 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		cast(^i32)&window.dim.x,
 		cast(^i32)&window.dim.y,
 	)
+
+	// NOTE(sen) Update mouse position
+	{
+		cursor_x, cursor_y: i32
+		sdl.GetMouseState(&cursor_x, &cursor_y)
+		input.cursor_pos = [2]f32{f32(cursor_x), f32(cursor_y)}
+	}
 
 }
 

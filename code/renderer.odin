@@ -13,7 +13,7 @@ Renderer :: struct {
 	vertices_camera_space: [dynamic][4]f32,
 	z_buffer:              []f32,
 	camera_pos:            [3]f32,
-	camera_rotation:       [3]f32,
+	camera_axes:           [3][3]f32,
 }
 
 FaceDepth :: struct {
@@ -56,6 +56,7 @@ create_renderer :: proc(width, height: int) -> Renderer {
 		pixels_dim = [2]int{width, height},
 		options = {.BackfaceCull, .FilledTriangles},
 		z_buffer = make([]f32, width * height),
+		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
 	}
 	clear(&renderer)
 	return renderer
@@ -99,8 +100,11 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	world_transform := translation4 * rotation4 * scale4
 
-	camera_axes := get_rotated_axes(renderer.camera_rotation)
-	camera_transform := look_direction(renderer.camera_pos, camera_axes.z, camera_axes.y)
+	camera_transform := look_direction(
+		renderer.camera_pos,
+		renderer.camera_axes.z,
+		renderer.camera_axes.y,
+	)
 
 	model_to_camera_transform := camera_transform * world_transform
 
@@ -626,6 +630,30 @@ rotation :: proc(axis: [3]f32, angle: f32) -> matrix[4, 4]f32 {
 
 	return result
 }
+
+get_rotation3 :: proc(axis: [3]f32, angle: f32) -> matrix[3, 3]f32 {
+	cos := math.cos(angle)
+	sin := math.sin(angle)
+	icos := 1 - cos
+	isin := 1 - sin
+
+	result: matrix[3, 3]f32
+
+	result[0, 0] = cos + axis.x * axis.x * icos
+	result[0, 1] = axis.x * axis.y * icos - axis.z * sin
+	result[0, 2] = axis.x * axis.z * icos + axis.y * sin
+
+	result[1, 0] = axis.y * axis.x * icos + axis.z * sin
+	result[1, 1] = cos + axis.y * axis.y * icos
+	result[1, 2] = axis.y * axis.z * icos - axis.x * sin
+
+	result[2, 0] = axis.z * axis.x * icos - axis.y * sin
+	result[2, 1] = axis.z * axis.y * icos + axis.x * sin
+	result[2, 2] = cos + axis.z * axis.z * icos
+
+	return result
+}
+
 
 perspective :: proc(width_over_height, fov, z_far, z_near: f32) -> matrix[4, 4]f32 {
 	tan := math.tan(fov / 2)
