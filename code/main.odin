@@ -10,7 +10,15 @@ main :: proc() {
 
 	window := create_window("learn3d", 1280, 720)
 
-	renderer := create_renderer(window.dim.x, window.dim.y, 65536, 65536)
+	renderer := create_renderer(
+		window.dim.x,
+		window.dim.y,
+		65536,
+		65536,
+		to_radians(90),
+		0.1,
+		100,
+	)
 
 	mesh: Mesh
 	mesh.scale = 1

@@ -20,6 +20,8 @@ Renderer :: struct {
 	options:                   bit_set[DisplayOption],
 	camera_pos:                [3]f32,
 	camera_axes:               [3][3]f32,
+	fov, near, far:            f32,
+	clip_planes:               [ClipPlane.Count]Plane,
 }
 
 FaceDepth :: struct {
@@ -56,7 +58,30 @@ Texture :: struct {
 	pitch:  int,
 }
 
-create_renderer :: proc(width, height, max_vertices, max_triangles: int) -> Renderer {
+ClipPlane :: enum {
+	Left,
+	Right,
+	Top,
+	Bottom,
+	Near,
+	Far,
+	Count,
+}
+
+Plane :: struct {
+	point:  [3]f32,
+	normal: [3]f32,
+}
+
+create_renderer :: proc(
+	width,
+	height,
+	max_vertices,
+	max_triangles: int,
+	fov,
+	near,
+	far: f32,
+) -> Renderer {
 	renderer := Renderer {
 		pixels = make([]u32, width * height),
 		pixels_dim = [2]int{width, height},
@@ -66,6 +91,10 @@ create_renderer :: proc(width, height, max_vertices, max_triangles: int) -> Rend
 		vertices = make([][3]f32, max_vertices),
 		vertices_camera_space = make([][4]f32, max_vertices),
 		triangles = make([]Triangle, max_triangles),
+		fov = fov,
+		near = near,
+		far = far,
+		clip_planes = get_clip_planes(fov, near, far),
 	}
 	clear(&renderer)
 	return renderer
@@ -93,6 +122,27 @@ get_rotated_axes :: proc(rotation: [3]f32) -> [3][3]f32 {
 	right = rotate_z(right, rotation.z)
 
 	return [3][3]f32{right, up, forward}
+}
+
+get_clip_planes :: proc(fov, near, far: f32) -> [ClipPlane.Count]Plane {
+
+	half_fov := fov * 0.5
+
+	cos := math.cos(half_fov)
+	sin := math.sin(half_fov)
+
+	planes: [ClipPlane.Count]Plane
+
+	planes[ClipPlane.Left] = Plane{{0, 0, 0}, {cos, 0, sin}}
+	planes[ClipPlane.Right] = Plane{{0, 0, 0}, {-cos, 0, sin}}
+
+	planes[ClipPlane.Top] = Plane{{0, 0, 0}, {0, -cos, sin}}
+	planes[ClipPlane.Bottom] = Plane{{0, 0, 0}, {0, cos, sin}}
+
+	planes[ClipPlane.Near] = Plane{{0, 0, near}, {0, 0, 1}}
+	planes[ClipPlane.Far] = Plane{{0, 0, far}, {0, 0, -1}}
+
+	return planes
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
@@ -126,7 +176,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 	// NOTE(sen) Draw triangles
 
 	width_over_height := f32(renderer.pixels_dim.x) / f32(renderer.pixels_dim.y)
-	projection4 := perspective(width_over_height, to_radians(80), 100, 0.1)
+	projection4 := perspective(width_over_height, renderer.fov, renderer.far, renderer.near)
 
 	light_ray := linalg.normalize([3]f32{0, 0, 1})
 
