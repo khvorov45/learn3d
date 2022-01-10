@@ -25,11 +25,6 @@ Renderer :: struct {
 	projection:                matrix[4, 4]f32,
 }
 
-FaceDepth :: struct {
-	face:  int,
-	depth: f32,
-}
-
 DisplayOption :: enum {
 	FilledTriangles,
 	Wireframe,
@@ -48,7 +43,7 @@ Mesh :: struct {
 }
 
 Triangle :: struct {
-	indices: [3]int,
+	indices: [3]int, // TODO(sen) What if I make these be vertices?
 	color:   [4]f32,
 	texture: [3][2]f32,
 }
@@ -119,88 +114,14 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 	}
 }
 
-get_clip_planes :: proc(
-	fov_horizontal,
-	height_over_width,
-	near,
-	far: f32,
-) -> [ClipPlane.Count]Plane {
-
-	half_fov_horizontal := fov_horizontal * 0.5
-
-	tan_vertical := height_over_width * math.tan(half_fov_horizontal)
-
-	half_fov_vertical := math.atan(tan_vertical)
-
-	cos_h := math.cos(half_fov_horizontal)
-	sin_h := math.sin(half_fov_horizontal)
-
-	cos_v := math.cos(half_fov_vertical)
-	sin_v := math.sin(half_fov_vertical)
-
-	planes: [ClipPlane.Count]Plane
-
-	planes[ClipPlane.Left] = Plane{{0, 0, 0}, {cos_h, 0, sin_h}}
-	planes[ClipPlane.Right] = Plane{{0, 0, 0}, {-cos_h, 0, sin_h}}
-
-	planes[ClipPlane.Top] = Plane{{0, 0, 0}, {0, -cos_v, sin_v}}
-	planes[ClipPlane.Bottom] = Plane{{0, 0, 0}, {0, cos_v, sin_v}}
-
-	planes[ClipPlane.Near] = Plane{{0, 0, near}, {0, 0, 1}}
-	planes[ClipPlane.Far] = Plane{{0, 0, far}, {0, 0, -1}}
-
-	return planes
-}
-
-clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
-
-	result: Polygon
-
-	if polygon.vertex_count > 0 {
-
-		assert(polygon.vertex_count >= 3)
-
-		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
-		prev_tex := polygon.texture[polygon.vertex_count - 1]
-		prev_dot := linalg.dot(prev_vertex - plane.point, plane.normal)
-
-		for vertex_index in 0 ..< polygon.vertex_count {
-
-			this_vertex := polygon.vertices[vertex_index]
-			this_tex := polygon.texture[vertex_index]
-			this_dot := linalg.dot(this_vertex - plane.point, plane.normal)
-
-			if prev_dot * this_dot < 0 {
-
-				range := prev_dot - this_dot
-				from_prev := prev_dot / range
-
-				intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
-				tex_intersection := (1 - from_prev) * prev_tex + from_prev * this_tex
-
-				result.vertices[result.vertex_count] = intersection
-				result.texture[result.vertex_count] = tex_intersection
-				result.vertex_count += 1
-
-			}
-
-			if this_dot >= 0 {
-
-				result.vertices[result.vertex_count] = this_vertex
-				result.texture[result.vertex_count] = this_tex
-				result.vertex_count += 1
-
-			}
-
-			prev_vertex = this_vertex
-			prev_tex = this_tex
-			prev_dot = this_dot
-
-		}
-
+clear :: proc(renderer: ^Renderer) {
+	for pixel in &renderer.pixels {
+		pixel = 0
 	}
-
-	return result
+	for z_val in &renderer.z_buffer {
+		z_val = math.inf_f32(1)
+	}
+	renderer.vertex_camera_space_count = 0
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
@@ -544,22 +465,6 @@ draw_triangle :: proc(
 
 }
 
-ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
-	point_01 := point_ndc * [2]f32{0.5, -0.5} + 0.5
-	point_px := point_01 * [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)}
-	return point_px
-}
-
-clear :: proc(renderer: ^Renderer) {
-	for pixel in &renderer.pixels {
-		pixel = 0
-	}
-	for z_val in &renderer.z_buffer {
-		z_val = math.inf_f32(1)
-	}
-	renderer.vertex_camera_space_count = 0
-}
-
 draw_rect :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {
 	bottomright := topleft + dim
 
@@ -592,6 +497,96 @@ draw_line :: proc(renderer: ^Renderer, start: [2]f32, end: [2]f32, color: u32) {
 		draw_pixel(renderer, cur_rounded, color)
 		cur += inc
 	}
+}
+
+get_clip_planes :: proc(
+	fov_horizontal,
+	height_over_width,
+	near,
+	far: f32,
+) -> [ClipPlane.Count]Plane {
+
+	half_fov_horizontal := fov_horizontal * 0.5
+
+	tan_vertical := height_over_width * math.tan(half_fov_horizontal)
+
+	half_fov_vertical := math.atan(tan_vertical)
+
+	cos_h := math.cos(half_fov_horizontal)
+	sin_h := math.sin(half_fov_horizontal)
+
+	cos_v := math.cos(half_fov_vertical)
+	sin_v := math.sin(half_fov_vertical)
+
+	planes: [ClipPlane.Count]Plane
+
+	planes[ClipPlane.Left] = Plane{{0, 0, 0}, {cos_h, 0, sin_h}}
+	planes[ClipPlane.Right] = Plane{{0, 0, 0}, {-cos_h, 0, sin_h}}
+
+	planes[ClipPlane.Top] = Plane{{0, 0, 0}, {0, -cos_v, sin_v}}
+	planes[ClipPlane.Bottom] = Plane{{0, 0, 0}, {0, cos_v, sin_v}}
+
+	planes[ClipPlane.Near] = Plane{{0, 0, near}, {0, 0, 1}}
+	planes[ClipPlane.Far] = Plane{{0, 0, far}, {0, 0, -1}}
+
+	return planes
+}
+
+clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
+
+	result: Polygon
+
+	if polygon.vertex_count > 0 {
+
+		assert(polygon.vertex_count >= 3)
+
+		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
+		prev_tex := polygon.texture[polygon.vertex_count - 1]
+		prev_dot := linalg.dot(prev_vertex - plane.point, plane.normal)
+
+		for vertex_index in 0 ..< polygon.vertex_count {
+
+			this_vertex := polygon.vertices[vertex_index]
+			this_tex := polygon.texture[vertex_index]
+			this_dot := linalg.dot(this_vertex - plane.point, plane.normal)
+
+			if prev_dot * this_dot < 0 {
+
+				range := prev_dot - this_dot
+				from_prev := prev_dot / range
+
+				intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
+				tex_intersection := (1 - from_prev) * prev_tex + from_prev * this_tex
+
+				result.vertices[result.vertex_count] = intersection
+				result.texture[result.vertex_count] = tex_intersection
+				result.vertex_count += 1
+
+			}
+
+			if this_dot >= 0 {
+
+				result.vertices[result.vertex_count] = this_vertex
+				result.texture[result.vertex_count] = this_tex
+				result.vertex_count += 1
+
+			}
+
+			prev_vertex = this_vertex
+			prev_tex = this_tex
+			prev_dot = this_dot
+
+		}
+
+	}
+
+	return result
+}
+
+ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
+	point_01 := point_ndc * [2]f32{0.5, -0.5} + 0.5
+	point_px := point_01 * [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)}
+	return point_px
 }
 
 between_int :: proc(input: int, left: int, right: int) -> bool {
