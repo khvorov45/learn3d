@@ -253,44 +253,50 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	for mesh_triangle in mesh.triangles {
 
-		// NOTE(sen) Clip
-		polygon: Polygon
-		polygon.vertex_count = 3
+		// NOTE(sen) Back-face culling
+		mesh_triangle_vertices: [3][3]f32
 		for fi, vi in mesh_triangle.indices {
 			vert := renderer.vertices_camera_space[fi + face_offset]
-			polygon.vertices[vi] = vert.xyz
-			polygon.texture[vi] = mesh_triangle.texture[vi]
+			mesh_triangle_vertices[vi] = vert.xyz
 		}
-		for plane_index in 0 ..< int(ClipPlane.Count) {
-			polygon = clip_against_plane(polygon, renderer.clip_planes[plane_index])
-		}
+		ab := mesh_triangle_vertices[1].xyz - mesh_triangle_vertices[0].xyz
+		ac := mesh_triangle_vertices[2].xyz - mesh_triangle_vertices[0].xyz
+		normal := linalg.normalize(linalg.cross(ab, ac))
 
-		// NOTE(sen) Draw clipped
-		for clipped_triangle_index in 3 .. polygon.vertex_count {
+		camera_ray := -mesh_triangle_vertices[0].xyz
 
-			vertices: [3][4]f32
-			vertices[0].xyz = polygon.vertices[0]
-			vertices[0].w = 1
-			vertices[1].xyz = polygon.vertices[clipped_triangle_index - 2]
-			vertices[1].w = 1
-			vertices[2].xyz = polygon.vertices[clipped_triangle_index - 1]
-			vertices[2].w = 1
+		camera_normal_dot := linalg.dot(normal, camera_ray)
 
-			tex_coords: [3][2]f32
-			tex_coords[0] = polygon.texture[0]
-			tex_coords[1] = polygon.texture[clipped_triangle_index - 2]
-			tex_coords[2] = polygon.texture[clipped_triangle_index - 1]
+		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
-			ab := vertices[1].xyz - vertices[0].xyz
-			ac := vertices[2].xyz - vertices[0].xyz
-			normal := linalg.normalize(linalg.cross(ab, ac))
+			// NOTE(sen) Clipping
+			polygon: Polygon
+			polygon.vertex_count = 3
+			for vi in 0 ..< polygon.vertex_count {
+				polygon.vertices[vi] = mesh_triangle_vertices[vi]
+				polygon.texture[vi] = mesh_triangle.texture[vi]
+			}
+			for plane_index in 0 ..< int(ClipPlane.Count) {
+				polygon = clip_against_plane(polygon, renderer.clip_planes[plane_index])
+			}
 
-			camera_ray := -vertices[0].xyz
+			// NOTE(sen) Draw clipped
+			for clipped_triangle_index in 3 .. polygon.vertex_count {
 
-			camera_normal_dot := linalg.dot(normal, camera_ray)
-			light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
+				vertices: [3][4]f32
+				vertices[0].xyz = polygon.vertices[0]
+				vertices[0].w = 1
+				vertices[1].xyz = polygon.vertices[clipped_triangle_index - 2]
+				vertices[1].w = 1
+				vertices[2].xyz = polygon.vertices[clipped_triangle_index - 1]
+				vertices[2].w = 1
 
-			if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
+				tex_coords: [3][2]f32
+				tex_coords[0] = polygon.texture[0]
+				tex_coords[1] = polygon.texture[clipped_triangle_index - 2]
+				tex_coords[2] = polygon.texture[clipped_triangle_index - 1]
+
+				light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
 
 				get_px :: proc(vertex: [4]f32, proj: matrix[4, 4]f32, pixels_dim: [2]int) -> [2]f32 {
 					vertex_projected := proj * vertex
