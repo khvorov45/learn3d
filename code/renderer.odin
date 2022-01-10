@@ -294,9 +294,8 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 				get_px :: proc(vertex: [4]f32, proj: matrix[4, 4]f32, pixels_dim: [2]int) -> [2]f32 {
 					vertex_projected := proj * vertex
-					if vertex_projected.w != 0 {
-						vertex_projected.xyz /= vertex_projected.w
-					}
+					assert(vertex_projected.w != 0) // NOTE(sen) Because of clipping
+					vertex_projected.xyz /= vertex_projected.w
 					vertex_pixels := ndc_to_pixels(vertex_projected.xy, pixels_dim)
 					return vertex_pixels
 				}

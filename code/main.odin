@@ -25,7 +25,7 @@ main :: proc() {
 	mesh.translation.z += 3.5
 	//mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
 	mesh.vertices, mesh.triangles = read_obj(
-		read_file("assets/cube.obj"),
+		read_file("assets/f22.obj"),
 		renderer.vertices[renderer.vertex_count:],
 		renderer.triangles[renderer.triangle_count:],
 	)
@@ -33,7 +33,7 @@ main :: proc() {
 	renderer.vertex_count += len(mesh.vertices)
 	renderer.triangle_count += len(mesh.triangles)
 
-	texture := read_image(read_file("assets/cube.png"))
+	texture := read_image(read_file("assets/f22.png"))
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
