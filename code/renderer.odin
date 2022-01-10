@@ -179,7 +179,6 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
 		prev_tex := polygon.texture[polygon.vertex_count - 1]
 		prev_dot := linalg.dot(prev_vertex - plane.point, plane.normal)
-		prev_inside := prev_dot >= 0
 
 		for vertex_index in 0 ..< polygon.vertex_count {
 
@@ -187,43 +186,25 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 			this_tex := polygon.texture[vertex_index]
 			this_dot := linalg.dot(this_vertex - plane.point, plane.normal)
 
-			if this_dot < 0 {
+			if prev_dot * this_dot < 0 {
 
-				if prev_inside {
+				range := prev_dot - this_dot
+				from_prev := prev_dot / range
 
-					prev_vertex := prev_vertex
-					range := prev_dot - this_dot
-					from_prev := prev_dot / range
-					intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
-					tex_intersection := (1 - from_prev) * prev_tex + from_prev * this_tex
-					result.vertices[result.vertex_count] = intersection
-					result.texture[result.vertex_count] = tex_intersection
-					result.vertex_count += 1
+				intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
+				tex_intersection := (1 - from_prev) * prev_tex + from_prev * this_tex
 
-				}
+				result.vertices[result.vertex_count] = intersection
+				result.texture[result.vertex_count] = tex_intersection
+				result.vertex_count += 1
 
-				prev_inside = false
+			}
 
-			} else {
-
-				if !prev_inside {
-
-					prev_vertex := prev_vertex
-					range := this_dot - prev_dot
-					from_this := this_dot / range
-					intersection := (1 - from_this) * this_vertex + from_this * prev_vertex
-					tex_intersection := (1 - from_this) * this_tex + from_this * prev_tex
-					result.vertices[result.vertex_count] = intersection
-					result.texture[result.vertex_count] = tex_intersection
-					result.vertex_count += 1
-
-				}
+			if this_dot >= 0 {
 
 				result.vertices[result.vertex_count] = this_vertex
 				result.texture[result.vertex_count] = this_tex
 				result.vertex_count += 1
-
-				prev_inside = true
 
 			}
 
@@ -366,13 +347,6 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 						renderer.pixels_dim,
 					)
 					draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
-				}
-
-				for poly_vertex_index in 0 ..< polygon.vertex_count {
-					poly_vertex := polygon.vertices[poly_vertex_index]
-					poly_vertex4 := [4]f32{poly_vertex.x, poly_vertex.y, poly_vertex.z, 1}
-					poly_vertex_px := get_px(poly_vertex4, renderer.projection, renderer.pixels_dim)
-					draw_rect(renderer, poly_vertex_px - 3, [2]f32{6, 6}, 0xFFFFFFFF)
 				}
 
 			}
