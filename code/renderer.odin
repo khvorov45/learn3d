@@ -1,5 +1,14 @@
 package learn3d
 
+/* Renderer
+
+Coordinates in 3d spaces: x+ right; y+ up; z+ inside (left-handed);
+Coordinates in pixels: x+ right; y+ down
+
+draw_*_px functions draw directly on the pixel buffer and do not perform
+clipping or bounds-checking
+*/
+
 import "core:math"
 import "core:math/linalg"
 import "core:builtin"
@@ -347,38 +356,34 @@ draw_triangle_px :: proc(
 
 					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
 
-					if between(px_coord, [2]int{0, 0}, renderer.pixels_dim - 1) {
+					point := [2]f32{col, row}
+					ap := point - top
+					bp := point - mid
 
-						point := [2]f32{col, row}
-						ap := point - top
-						bp := point - mid
+					alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
+					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
+					gamma := 1 - alpha - beta
 
-						alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
-						beta := linalg.cross(ap, ac) * one_over_twice_abc_area
-						gamma := 1 - alpha - beta
+					one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
+					this_w := 1 / one_over_w
 
-						one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
-						this_w := 1 / one_over_w
+					px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
+					if renderer.z_buffer[px_index] > this_w {
 
-						px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
-						if renderer.z_buffer[px_index] > this_w {
+						renderer.z_buffer[px_index] = this_w
 
-							renderer.z_buffer[px_index] = this_w
+						tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+						tex_coord01 *= this_w
 
-							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
-							tex_coord01 *= this_w
+						tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+						texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
 
-							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-							texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+						tex_color32 := texture.memory[texel_index]
+						tex_color := color_to_4f32(tex_color32)
+						tex_shaded := tex_color * color
 
-							tex_color32 := texture.memory[texel_index]
-							tex_color := color_to_4f32(tex_color32)
-							tex_shaded := tex_color * color
-
-							result_color := color_to_u32argb(tex_shaded)
-							renderer.pixels[px_index] = result_color
-
-						}
+						result_color := color_to_u32argb(tex_shaded)
+						renderer.pixels[px_index] = result_color
 
 					}
 
@@ -421,38 +426,34 @@ draw_triangle_px :: proc(
 
 					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
 
-					if between(px_coord, [2]int{0, 0}, renderer.pixels_dim - 1) {
+					point := [2]f32{col, row}
+					ap := point - top
+					bp := point - mid
 
-						point := [2]f32{col, row}
-						ap := point - top
-						bp := point - mid
+					alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
+					beta := linalg.cross(ap, ac) * one_over_twice_abc_area
+					gamma := 1 - alpha - beta
 
-						alpha := linalg.cross(bc, bp) * one_over_twice_abc_area
-						beta := linalg.cross(ap, ac) * one_over_twice_abc_area
-						gamma := 1 - alpha - beta
+					one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
+					this_w := 1 / one_over_w
 
-						one_over_w := alpha * one_over_w_top + beta * one_over_w_mid + gamma * one_over_w_bottom
-						this_w := 1 / one_over_w
+					px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
+					if renderer.z_buffer[px_index] > this_w {
 
-						px_index := px_coord.y * renderer.pixels_dim.x + px_coord.x
-						if renderer.z_buffer[px_index] > this_w {
+						renderer.z_buffer[px_index] = this_w
 
-							renderer.z_buffer[px_index] = this_w
+						tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+						tex_coord01 *= this_w
 
-							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
-							tex_coord01 *= this_w
+						tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+						texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
 
-							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-							texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+						tex_color32 := texture.memory[texel_index]
+						tex_color := color_to_4f32(tex_color32)
+						tex_shaded := tex_color * color
 
-							tex_color32 := texture.memory[texel_index]
-							tex_color := color_to_4f32(tex_color32)
-							tex_shaded := tex_color * color
-
-							result_color := color_to_u32argb(tex_shaded)
-							renderer.pixels[px_index] = result_color
-
-						}
+						result_color := color_to_u32argb(tex_shaded)
+						renderer.pixels[px_index] = result_color
 
 					}
 
@@ -467,7 +468,7 @@ draw_triangle_px :: proc(
 
 draw_rect_px :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {
 	bottomright := topleft + dim
-
+	// TODO(sen) Remove bounds check
 	clamped_topleft := clamp_2f32(
 		topleft,
 		[2]f32{0, 0},
@@ -487,6 +488,7 @@ draw_rect_px :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u
 }
 
 draw_line_px :: proc(renderer: ^Renderer, start: [2]f32, end: [2]f32, color: u32) {
+	// TODO(sen) Remove bounds check
 	delta := end - start
 	run_length := max(abs(delta.x), abs(delta.y))
 	inc := delta / run_length
@@ -585,7 +587,7 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 
 ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
 	point_01 := point_ndc * [2]f32{0.5, -0.5} + 0.5
-	point_px := point_01 * [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)}
+	point_px := point_01 * [2]f32{f32(pixels_dim.x - 1), f32(pixels_dim.y - 1)}
 	return point_px
 }
 

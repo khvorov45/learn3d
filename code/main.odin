@@ -17,7 +17,7 @@ main :: proc() {
 		65536,
 		to_radians(90),
 		0.1,
-		100,
+		10,
 	)
 
 	mesh: Mesh
