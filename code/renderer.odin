@@ -119,22 +119,6 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 	}
 }
 
-get_rotated_axes :: proc(rotation: [3]f32) -> [3][3]f32 {
-	forward := [3]f32{0, 0, 1}
-	forward = rotate_x(forward, rotation.x)
-	forward = rotate_y(forward, rotation.y)
-
-	up := [3]f32{0, 1, 0}
-	up = rotate_x(up, rotation.x)
-	up = rotate_z(up, rotation.z)
-
-	right := [3]f32{1, 0, 0}
-	right = rotate_y(right, rotation.y)
-	right = rotate_z(right, rotation.z)
-
-	return [3][3]f32{right, up, forward}
-}
-
 get_clip_planes :: proc(
 	fov_horizontal,
 	height_over_width,
@@ -564,41 +548,6 @@ ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
 	point_01 := point_ndc * [2]f32{0.5, -0.5} + 0.5
 	point_px := point_01 * [2]f32{f32(pixels_dim.x), f32(pixels_dim.y)}
 	return point_px
-}
-
-rotate_x :: proc(vec: [3]f32, angle: f32) -> [3]f32 {
-	result := vec
-	cos_angle := math.cos(angle)
-	sin_angle := math.sin(angle)
-	result.y = vec.y * cos_angle - vec.z * sin_angle
-	result.z = vec.y * sin_angle + vec.z * cos_angle
-	return result
-}
-
-rotate_y :: proc(vec: [3]f32, angle: f32) -> [3]f32 {
-	result := vec
-	cos_angle := math.cos(angle)
-	sin_angle := math.sin(angle)
-	result.x = vec.x * cos_angle - vec.z * sin_angle
-	result.z = vec.x * sin_angle + vec.z * cos_angle
-	return result
-}
-
-rotate_z :: proc(vec: [3]f32, angle: f32) -> [3]f32 {
-	result := vec
-	cos_angle := math.cos(angle)
-	sin_angle := math.sin(angle)
-	result.x = vec.x * cos_angle - vec.y * sin_angle
-	result.y = vec.x * sin_angle + vec.y * cos_angle
-	return result
-}
-
-rotate_axis_aligned :: proc(vec: [3]f32, angles: [3]f32) -> [3]f32 {
-	result := vec
-	result = rotate_x(result, angles.x)
-	result = rotate_y(result, angles.y)
-	result = rotate_z(result, angles.z)
-	return result
 }
 
 clear :: proc(renderer: ^Renderer) {
