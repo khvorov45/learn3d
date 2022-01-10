@@ -145,7 +145,11 @@ main :: proc() {
 
 		draw_mesh(&renderer, mesh, texture)
 
-		draw_rect_px(&renderer, input.cursor_pos, [2]f32{4, 4}, 0xFFFF00FF)
+		draw_rect_px(
+			&renderer,
+			clip_to_px_buffer(Rect2d{input.cursor_pos, [2]f32{4, 4}}, renderer.pixels_dim),
+			0xFFFF00FF,
+		)
 
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 

@@ -84,6 +84,11 @@ Plane :: struct {
 	normal: [3]f32,
 }
 
+Rect2d :: struct {
+	topleft: [2]f32,
+	dim:     [2]f32,
+}
+
 create_renderer :: proc(
 	width,
 	height,
@@ -247,7 +252,11 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 					for vertex in vertices_px {
 						dim := [2]f32{5, 5}
 						topleft := vertex - dim * 0.5
-						draw_rect_px(renderer, topleft, dim, 0xFFFFFF00)
+						draw_rect_px(
+							renderer,
+							clip_to_px_buffer(Rect2d{topleft, dim}, renderer.pixels_dim),
+							0xFFFFFF00,
+						)
 					}
 				}
 
@@ -255,7 +264,11 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				est_center_px := get_px(est_center, renderer.projection, renderer.pixels_dim)
 
 				if .Midpoints in renderer.options {
-					draw_rect_px(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
+					draw_rect_px(
+						renderer,
+						clip_to_px_buffer(Rect2d{est_center_px, [2]f32{4, 4}}, renderer.pixels_dim),
+						0xFFFF00FF,
+					)
 				}
 
 				if .Normals in renderer.options {
@@ -466,22 +479,10 @@ draw_triangle_px :: proc(
 
 }
 
-draw_rect_px :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {
-	bottomright := topleft + dim
-	// TODO(sen) Remove bounds check
-	clamped_topleft := clamp_2f32(
-		topleft,
-		[2]f32{0, 0},
-		linalg.to_f32(renderer.pixels_dim - 1),
-	)
-	clamped_bottomright := clamp_2f32(
-		bottomright,
-		[2]f32{0, 0},
-		linalg.to_f32(renderer.pixels_dim),
-	)
-
-	for row in round(clamped_topleft.y) ..< round(clamped_bottomright.y) {
-		for col in round(clamped_topleft.x) ..< round(clamped_bottomright.x) {
+draw_rect_px :: proc(renderer: ^Renderer, rect: Rect2d, color: u32) {
+	bottomright := rect.topleft + rect.dim
+	for row in round(rect.topleft.y) ..< round(bottomright.y) {
+		for col in round(rect.topleft.x) ..< round(bottomright.x) {
 			renderer.pixels[row * renderer.pixels_dim.x + col] = color
 		}
 	}
@@ -579,6 +580,33 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 			prev_dot = this_dot
 
 		}
+
+	}
+
+	return result
+}
+
+clip_to_px_buffer :: proc(rect: Rect2d, px_dim: [2]int) -> Rect2d {
+
+	dim_f32 := [2]f32{f32(px_dim.x), f32(px_dim.y)}
+	result: Rect2d
+
+	topleft := rect.topleft
+	bottomright := topleft + rect.dim
+
+	x_overlaps := topleft.x < dim_f32.x && bottomright.x > 0
+	y_overlaps := topleft.y < dim_f32.y && bottomright.y > 0
+
+	if x_overlaps && y_overlaps {
+
+		topleft.x = max(topleft.x, 0)
+		topleft.y = max(topleft.y, 0)
+
+		bottomright.x = min(bottomright.x, dim_f32.x)
+		bottomright.y = min(bottomright.y, dim_f32.y)
+
+		result.topleft = topleft
+		result.dim = bottomright - topleft
 
 	}
 
