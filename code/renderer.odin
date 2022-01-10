@@ -124,7 +124,7 @@ clear :: proc(renderer: ^Renderer) {
 	renderer.vertex_camera_space_count = 0
 }
 
-render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
+draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	scale4 := scale(mesh.scale)
 
@@ -225,20 +225,20 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				if .FilledTriangles in renderer.options {
 					shaded_color := mesh_triangle.color
 					shaded_color.rgb *= light_normal_dot
-					draw_triangle(renderer, vertices_px, shaded_color, tex_coords, og_zw, texture)
+					draw_triangle_px(renderer, vertices_px, shaded_color, tex_coords, og_zw, texture)
 				}
 
 				if .Wireframe in renderer.options {
-					draw_line(renderer, vertices_px[0], vertices_px[1], 0xFFFF0000)
-					draw_line(renderer, vertices_px[0], vertices_px[2], 0xFFFF0000)
-					draw_line(renderer, vertices_px[1], vertices_px[2], 0xFFFF0000)
+					draw_line_px(renderer, vertices_px[0], vertices_px[1], 0xFFFF0000)
+					draw_line_px(renderer, vertices_px[0], vertices_px[2], 0xFFFF0000)
+					draw_line_px(renderer, vertices_px[1], vertices_px[2], 0xFFFF0000)
 				}
 
 				if .Vertices in renderer.options {
 					for vertex in vertices_px {
 						dim := [2]f32{5, 5}
 						topleft := vertex - dim * 0.5
-						draw_rect(renderer, topleft, dim, 0xFFFFFF00)
+						draw_rect_px(renderer, topleft, dim, 0xFFFFFF00)
 					}
 				}
 
@@ -246,7 +246,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				est_center_px := get_px(est_center, renderer.projection, renderer.pixels_dim)
 
 				if .Midpoints in renderer.options {
-					draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
+					draw_rect_px(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
 				}
 
 				if .Normals in renderer.options {
@@ -256,7 +256,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 						renderer.projection,
 						renderer.pixels_dim,
 					)
-					draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+					draw_line_px(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
 				}
 
 			}
@@ -267,7 +267,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 }
 
-draw_triangle :: proc(
+draw_triangle_px :: proc(
 	renderer: ^Renderer,
 	vertices: [3][2]f32,
 	color: [4]f32,
@@ -465,7 +465,7 @@ draw_triangle :: proc(
 
 }
 
-draw_rect :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {
+draw_rect_px :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32) {
 	bottomright := topleft + dim
 
 	clamped_topleft := clamp_2f32(
@@ -486,7 +486,7 @@ draw_rect :: proc(renderer: ^Renderer, topleft: [2]f32, dim: [2]f32, color: u32)
 	}
 }
 
-draw_line :: proc(renderer: ^Renderer, start: [2]f32, end: [2]f32, color: u32) {
+draw_line_px :: proc(renderer: ^Renderer, start: [2]f32, end: [2]f32, color: u32) {
 	delta := end - start
 	run_length := max(abs(delta.x), abs(delta.y))
 	inc := delta / run_length

@@ -143,9 +143,9 @@ main :: proc() {
 
 		clear(&renderer)
 
-		render_mesh(&renderer, mesh, texture)
+		draw_mesh(&renderer, mesh, texture)
 
-		draw_rect(&renderer, input.cursor_pos, [2]f32{4, 4}, 0xFFFF00FF)
+		draw_rect_px(&renderer, input.cursor_pos, [2]f32{4, 4}, 0xFFFF00FF)
 
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 
