@@ -20,8 +20,9 @@ Renderer :: struct {
 	options:                   bit_set[DisplayOption],
 	camera_pos:                [3]f32,
 	camera_axes:               [3][3]f32,
-	fov, near, far:            f32,
+	fov_horizontal, near, far: f32,
 	clip_planes:               [ClipPlane.Count]Plane,
+	projection:                matrix[4, 4]f32,
 }
 
 FaceDepth :: struct {
@@ -52,6 +53,11 @@ Triangle :: struct {
 	texture: [3][2]f32,
 }
 
+Polygon :: struct {
+	vertices:     [9][3]f32,
+	vertex_count: int,
+}
+
 Texture :: struct {
 	memory: [^]u32,
 	dim:    [2]int,
@@ -78,10 +84,13 @@ create_renderer :: proc(
 	height,
 	max_vertices,
 	max_triangles: int,
-	fov,
+	fov_horizontal,
 	near,
 	far: f32,
 ) -> Renderer {
+
+	height_over_width := f32(height) / f32(width)
+
 	renderer := Renderer {
 		pixels = make([]u32, width * height),
 		pixels_dim = [2]int{width, height},
@@ -91,10 +100,11 @@ create_renderer :: proc(
 		vertices = make([][3]f32, max_vertices),
 		vertices_camera_space = make([][4]f32, max_vertices),
 		triangles = make([]Triangle, max_triangles),
-		fov = fov,
+		fov_horizontal = fov_horizontal,
 		near = near,
 		far = far,
-		clip_planes = get_clip_planes(fov, near, far),
+		clip_planes = get_clip_planes(fov_horizontal, height_over_width, near, far),
+		projection = perspective(fov_horizontal, height_over_width, near, far),
 	}
 	clear(&renderer)
 	return renderer
@@ -124,25 +134,99 @@ get_rotated_axes :: proc(rotation: [3]f32) -> [3][3]f32 {
 	return [3][3]f32{right, up, forward}
 }
 
-get_clip_planes :: proc(fov, near, far: f32) -> [ClipPlane.Count]Plane {
+get_clip_planes :: proc(
+	fov_horizontal,
+	height_over_width,
+	near,
+	far: f32,
+) -> [ClipPlane.Count]Plane {
 
-	half_fov := fov * 0.5
+	half_fov_horizontal := fov_horizontal * 0.5
 
-	cos := math.cos(half_fov)
-	sin := math.sin(half_fov)
+	tan_vertical := height_over_width * math.tan(half_fov_horizontal)
+
+	half_fov_vertical := math.atan(tan_vertical)
+
+	cos_h := math.cos(half_fov_horizontal)
+	sin_h := math.sin(half_fov_horizontal)
+
+	cos_v := math.cos(half_fov_vertical)
+	sin_v := math.sin(half_fov_vertical)
 
 	planes: [ClipPlane.Count]Plane
 
-	planes[ClipPlane.Left] = Plane{{0, 0, 0}, {cos, 0, sin}}
-	planes[ClipPlane.Right] = Plane{{0, 0, 0}, {-cos, 0, sin}}
+	planes[ClipPlane.Left] = Plane{{0, 0, 0}, {cos_h, 0, sin_h}}
+	planes[ClipPlane.Right] = Plane{{0, 0, 0}, {-cos_h, 0, sin_h}}
 
-	planes[ClipPlane.Top] = Plane{{0, 0, 0}, {0, -cos, sin}}
-	planes[ClipPlane.Bottom] = Plane{{0, 0, 0}, {0, cos, sin}}
+	planes[ClipPlane.Top] = Plane{{0, 0, 0}, {0, -cos_v, sin_v}}
+	planes[ClipPlane.Bottom] = Plane{{0, 0, 0}, {0, cos_v, sin_v}}
 
 	planes[ClipPlane.Near] = Plane{{0, 0, near}, {0, 0, 1}}
 	planes[ClipPlane.Far] = Plane{{0, 0, far}, {0, 0, -1}}
 
 	return planes
+}
+
+clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
+
+	result: Polygon
+
+	if polygon.vertex_count > 0 {
+
+		assert(polygon.vertex_count >= 3)
+
+		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
+		prev_dot := linalg.dot(prev_vertex - plane.point, plane.normal)
+		prev_inside := prev_dot >= 0
+
+		for vertex_index in 0 ..< polygon.vertex_count {
+
+			this_vertex := polygon.vertices[vertex_index]
+			this_dot := linalg.dot(this_vertex - plane.point, plane.normal)
+
+			if this_dot < 0 {
+
+				if prev_inside {
+
+					prev_vertex := prev_vertex
+					range := prev_dot - this_dot
+					from_prev := prev_dot / range
+					intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
+					result.vertices[result.vertex_count] = intersection
+					result.vertex_count += 1
+
+				}
+
+				prev_inside = false
+
+			} else {
+
+				if !prev_inside {
+
+					prev_vertex := prev_vertex
+					range := this_dot - prev_dot
+					from_this := this_dot / range
+					intersection := (1 - from_this) * this_vertex + from_this * prev_vertex
+					result.vertices[result.vertex_count] = intersection
+					result.vertex_count += 1
+
+				}
+
+				result.vertices[result.vertex_count] = this_vertex
+				result.vertex_count += 1
+
+				prev_inside = true
+
+			}
+
+			prev_vertex = this_vertex
+			prev_dot = this_dot
+
+		}
+
+	}
+
+	return result
 }
 
 render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
@@ -175,86 +259,114 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	// NOTE(sen) Draw triangles
 
-	width_over_height := f32(renderer.pixels_dim.x) / f32(renderer.pixels_dim.y)
-	projection4 := perspective(width_over_height, renderer.fov, renderer.far, renderer.near)
-
 	light_ray := linalg.normalize([3]f32{0, 0, 1})
 
-	for triangle in mesh.triangles {
+	for mesh_triangle in mesh.triangles {
 
-		vertices: [3][4]f32
-		for fi, vi in triangle.indices {
+		// NOTE(sen) Clip
+		polygon: Polygon
+		polygon.vertex_count = 3
+		for fi, vi in mesh_triangle.indices {
 			vert := renderer.vertices_camera_space[fi + face_offset]
-			vertices[vi] = [4]f32{vert.x, vert.y, vert.z, 1}
+			polygon.vertices[vi] = vert.xyz
+		}
+		for plane_index in 0 ..< int(ClipPlane.Count) {
+			polygon = clip_against_plane(polygon, renderer.clip_planes[plane_index])
 		}
 
-		ab := vertices[1].xyz - vertices[0].xyz
-		ac := vertices[2].xyz - vertices[0].xyz
-		normal := linalg.normalize(linalg.cross(ab, ac))
+		// NOTE(sen) Draw clipped
+		for clipped_triangle_index in 3 .. polygon.vertex_count {
 
-		camera_ray := -vertices[0].xyz
+			vertices: [3][4]f32
+			vertices[0].xyz = polygon.vertices[0]
+			vertices[0].w = 1
+			vertices[1].xyz = polygon.vertices[clipped_triangle_index - 2]
+			vertices[1].w = 1
+			vertices[2].xyz = polygon.vertices[clipped_triangle_index - 1]
+			vertices[2].w = 1
 
-		camera_normal_dot := linalg.dot(normal, camera_ray)
-		light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
+			ab := vertices[1].xyz - vertices[0].xyz
+			ac := vertices[2].xyz - vertices[0].xyz
+			normal := linalg.normalize(linalg.cross(ab, ac))
 
-		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
+			camera_ray := -vertices[0].xyz
 
-			get_px :: proc(vertex: [4]f32, proj: matrix[4, 4]f32, pixels_dim: [2]int) -> [2]f32 {
-				vertex_projected := proj * vertex
-				if vertex_projected.w != 0 {
-					vertex_projected.xyz /= vertex_projected.w
+			camera_normal_dot := linalg.dot(normal, camera_ray)
+			light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
+
+			if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
+
+				get_px :: proc(vertex: [4]f32, proj: matrix[4, 4]f32, pixels_dim: [2]int) -> [2]f32 {
+					vertex_projected := proj * vertex
+					if vertex_projected.w != 0 {
+						vertex_projected.xyz /= vertex_projected.w
+					}
+					vertex_pixels := ndc_to_pixels(vertex_projected.xy, pixels_dim)
+					return vertex_pixels
 				}
-				vertex_pixels := ndc_to_pixels(vertex_projected.xy, pixels_dim)
-				return vertex_pixels
-			}
 
-			vertices_px: [3][2]f32
-			og_zw: [3][2]f32
-			for vertex, index in vertices {
-				vertex_projected := projection4 * vertex
-				if vertex_projected.w != 0 {
-					vertex_projected.xyz /= vertex_projected.w
+				vertices_px: [3][2]f32
+				og_zw: [3][2]f32
+				for vertex, index in vertices {
+					vertex_projected := renderer.projection * vertex
+					if vertex_projected.w != 0 {
+						vertex_projected.xyz /= vertex_projected.w
+					}
+					vertices_px[index] = ndc_to_pixels(vertex_projected.xy, renderer.pixels_dim)
+					og_zw[index] = vertex_projected.zw
 				}
-				vertices_px[index] = ndc_to_pixels(vertex_projected.xy, renderer.pixels_dim)
-				og_zw[index] = vertex_projected.zw
-			}
 
-			if .FilledTriangles in renderer.options {
-				shaded_color := triangle.color
-				shaded_color.rgb *= light_normal_dot
-				draw_triangle(renderer, vertices_px, shaded_color, triangle.texture, og_zw, texture)
-			}
-
-			if .Wireframe in renderer.options {
-				draw_line(renderer, vertices_px[0], vertices_px[1], 0xFFFF0000)
-				draw_line(renderer, vertices_px[0], vertices_px[2], 0xFFFF0000)
-				draw_line(renderer, vertices_px[1], vertices_px[2], 0xFFFF0000)
-			}
-
-			if .Vertices in renderer.options {
-				for vertex in vertices_px {
-					dim := [2]f32{5, 5}
-					topleft := vertex - dim * 0.5
-					draw_rect(renderer, topleft, dim, 0xFFFFFF00)
+				if .FilledTriangles in renderer.options {
+					shaded_color := mesh_triangle.color
+					shaded_color.rgb *= light_normal_dot
+					draw_triangle(
+						renderer,
+						vertices_px,
+						shaded_color,
+						mesh_triangle.texture,
+						og_zw,
+						texture,
+					)
 				}
-			}
 
+				if .Wireframe in renderer.options {
+					draw_line(renderer, vertices_px[0], vertices_px[1], 0xFFFF0000)
+					draw_line(renderer, vertices_px[0], vertices_px[2], 0xFFFF0000)
+					draw_line(renderer, vertices_px[1], vertices_px[2], 0xFFFF0000)
+				}
 
-			est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
-			est_center_px := get_px(est_center, projection4, renderer.pixels_dim)
+				if .Vertices in renderer.options {
+					for vertex in vertices_px {
+						dim := [2]f32{5, 5}
+						topleft := vertex - dim * 0.5
+						draw_rect(renderer, topleft, dim, 0xFFFFFF00)
+					}
+				}
 
-			if .Midpoints in renderer.options {
-				draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
-			}
+				est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
+				est_center_px := get_px(est_center, renderer.projection, renderer.pixels_dim)
 
-			if .Normals in renderer.options {
-				normal_tip := 0.3 * normal + est_center.xyz
-				normal_tip_px := get_px(
-					[4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 0},
-					projection4,
-					renderer.pixels_dim,
-				)
-				draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+				if .Midpoints in renderer.options {
+					draw_rect(renderer, est_center_px, [2]f32{4, 4}, 0xFFFF00FF)
+				}
+
+				if .Normals in renderer.options {
+					normal_tip := 0.3 * normal + est_center.xyz
+					normal_tip_px := get_px(
+						[4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 0},
+						renderer.projection,
+						renderer.pixels_dim,
+					)
+					draw_line(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+				}
+
+				for poly_vertex_index in 0 ..< polygon.vertex_count {
+					poly_vertex := polygon.vertices[poly_vertex_index]
+					poly_vertex4 := [4]f32{poly_vertex.x, poly_vertex.y, poly_vertex.z, 1}
+					poly_vertex_px := get_px(poly_vertex4, renderer.projection, renderer.pixels_dim)
+					draw_rect(renderer, poly_vertex_px - 3, [2]f32{6, 6}, 0xFFFFFFFF)
+				}
+
 			}
 
 		}
@@ -715,16 +827,25 @@ get_rotation3 :: proc(axis: [3]f32, angle: f32) -> matrix[3, 3]f32 {
 }
 
 
-perspective :: proc(width_over_height, fov, z_far, z_near: f32) -> matrix[4, 4]f32 {
-	tan := math.tan(fov / 2)
-	itan := 1 / tan
+perspective :: proc(
+	fov_horizontal,
+	height_over_width,
+	z_near,
+	z_far: f32,
+) -> matrix[4, 4]f32 {
+
+	tan_h := math.tan(fov_horizontal / 2)
+	tan_v := height_over_width * tan_h
+
+	itan_h := 1 / tan_h
+	itan_v := 1 / tan_v
 
 	z_coef := z_far / (z_far - z_near)
 
 	result: matrix[4, 4]f32
 
-	result[0, 0] = itan
-	result[1, 1] = width_over_height * itan
+	result[0, 0] = itan_h
+	result[1, 1] = itan_v
 	result[2, 2] = z_coef
 	result[2, 3] = -z_coef * z_near
 	result[3, 2] = 1
