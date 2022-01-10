@@ -147,7 +147,7 @@ main :: proc() {
 
 		draw_rect_px(
 			&renderer,
-			clip_to_px_buffer(Rect2d{input.cursor_pos, [2]f32{4, 4}}, renderer.pixels_dim),
+			clip_to_px_buffer_rect(Rect2d{input.cursor_pos, [2]f32{4, 4}}, renderer.pixels_dim),
 			0xFFFF00FF,
 		)
 

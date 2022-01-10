@@ -2,6 +2,8 @@ package learn3d
 
 /* Renderer
 
+All angles are in radians
+
 Coordinates in 3d spaces: x+ right; y+ up; z+ inside (left-handed);
 Coordinates in pixels: x+ right; y+ down
 
@@ -87,6 +89,11 @@ Plane :: struct {
 Rect2d :: struct {
 	topleft: [2]f32,
 	dim:     [2]f32,
+}
+
+LineSegment2d :: struct {
+	start: [2]f32,
+	end:   [2]f32,
 }
 
 create_renderer :: proc(
@@ -243,9 +250,9 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				}
 
 				if .Wireframe in renderer.options {
-					draw_line_px(renderer, vertices_px[0], vertices_px[1], 0xFFFF0000)
-					draw_line_px(renderer, vertices_px[0], vertices_px[2], 0xFFFF0000)
-					draw_line_px(renderer, vertices_px[1], vertices_px[2], 0xFFFF0000)
+					draw_line_px(renderer, LineSegment2d{vertices_px[0], vertices_px[1]}, 0xFFFF0000)
+					draw_line_px(renderer, LineSegment2d{vertices_px[0], vertices_px[2]}, 0xFFFF0000)
+					draw_line_px(renderer, LineSegment2d{vertices_px[1], vertices_px[2]}, 0xFFFF0000)
 				}
 
 				if .Vertices in renderer.options {
@@ -254,7 +261,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 						topleft := vertex - dim * 0.5
 						draw_rect_px(
 							renderer,
-							clip_to_px_buffer(Rect2d{topleft, dim}, renderer.pixels_dim),
+							clip_to_px_buffer_rect(Rect2d{topleft, dim}, renderer.pixels_dim),
 							0xFFFFFF00,
 						)
 					}
@@ -266,7 +273,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				if .Midpoints in renderer.options {
 					draw_rect_px(
 						renderer,
-						clip_to_px_buffer(Rect2d{est_center_px, [2]f32{4, 4}}, renderer.pixels_dim),
+						clip_to_px_buffer_rect(Rect2d{est_center_px, [2]f32{4, 4}}, renderer.pixels_dim),
 						0xFFFF00FF,
 					)
 				}
@@ -278,7 +285,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 						renderer.projection,
 						renderer.pixels_dim,
 					)
-					draw_line_px(renderer, est_center_px, normal_tip_px, 0xFFFF00FF)
+					draw_line_px(renderer, LineSegment2d{est_center_px, normal_tip_px}, 0xFFFF00FF)
 				}
 
 			}
@@ -389,7 +396,9 @@ draw_triangle_px :: proc(
 						tex_coord01 *= this_w
 
 						tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-						texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+						tex_coord_y := int(math.round(tex_coord_px.y))
+						tex_coord_x := int(math.round(tex_coord_px.x))
+						texel_index := tex_coord_y * texture.pitch + tex_coord_x
 
 						tex_color32 := texture.memory[texel_index]
 						tex_color := color_to_4f32(tex_color32)
@@ -459,7 +468,9 @@ draw_triangle_px :: proc(
 						tex_coord01 *= this_w
 
 						tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-						texel_index := round(tex_coord_px.y) * texture.pitch + round(tex_coord_px.x)
+						tex_coord_y := int(math.round(tex_coord_px.y))
+						tex_coord_x := int(math.round(tex_coord_px.x))
+						texel_index := tex_coord_y * texture.pitch + tex_coord_x
 
 						tex_color32 := texture.memory[texel_index]
 						tex_color := color_to_4f32(tex_color32)
@@ -481,23 +492,23 @@ draw_triangle_px :: proc(
 
 draw_rect_px :: proc(renderer: ^Renderer, rect: Rect2d, color: u32) {
 	bottomright := rect.topleft + rect.dim
-	for row in round(rect.topleft.y) ..< round(bottomright.y) {
-		for col in round(rect.topleft.x) ..< round(bottomright.x) {
+	for row in int(math.ceil(rect.topleft.y)) ..< int(math.ceil(bottomright.y)) {
+		for col in int(math.ceil(rect.topleft.x)) ..< int(math.ceil(bottomright.x)) {
 			renderer.pixels[row * renderer.pixels_dim.x + col] = color
 		}
 	}
 }
 
-draw_line_px :: proc(renderer: ^Renderer, start: [2]f32, end: [2]f32, color: u32) {
-	// TODO(sen) Remove bounds check
-	delta := end - start
+draw_line_px :: proc(renderer: ^Renderer, line: LineSegment2d, color: u32) {
+	delta := line.end - line.start
 	run_length := max(abs(delta.x), abs(delta.y))
 	inc := delta / run_length
 
-	cur := start
+	cur := line.start
 	for _ in 0 ..< int(run_length) {
-		cur_rounded := round(cur)
-		draw_pixel(renderer, cur_rounded, color)
+		cur_rounded_x := int(math.round(cur.x))
+		cur_rounded_y := int(math.round(cur.y))
+		renderer.pixels[cur_rounded_y * renderer.pixels_dim.x + cur_rounded_x] = color
 		cur += inc
 	}
 }
@@ -586,7 +597,7 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 	return result
 }
 
-clip_to_px_buffer :: proc(rect: Rect2d, px_dim: [2]int) -> Rect2d {
+clip_to_px_buffer_rect :: proc(rect: Rect2d, px_dim: [2]int) -> Rect2d {
 
 	dim_f32 := [2]f32{f32(px_dim.x), f32(px_dim.y)}
 	result: Rect2d
@@ -613,85 +624,91 @@ clip_to_px_buffer :: proc(rect: Rect2d, px_dim: [2]int) -> Rect2d {
 	return result
 }
 
+// Liang–Barsky algorithm
+// https://en.wikipedia.org/wiki/Liang%E2%80%93Barsky_algorithm
+clip_to_px_buffer_line :: proc(line: LineSegment2d, px_dim: [2]int) -> LineSegment2d {
+
+	dim_f32 := [2]f32{f32(px_dim.x), f32(px_dim.y)}
+
+	p1 := -(line.end.x - line.start.x)
+	p2 := -p1
+	p3 := -(line.end.y - line.start.y)
+	p4 := -p3
+
+	q1 := line.start.x
+	q2 := dim_f32.x - line.start.x
+	q3 := line.start.y
+	q4 := dim_f32.y - line.start.y
+
+	posarr, negarr: [5]f32
+	posarr[0] = 1
+	negarr[0] = 0
+	posind := 1
+	negind := 1
+
+	result: LineSegment2d
+
+	// NOTE(sen) Line parallel to clipping window
+	if (p1 == 0 && q1 < 0) || (p2 == 0 && q2 < 0) || (p3 == 0 && q3 < 0) || (p4 == 0 && q4 <
+	   0) {
+		return result
+	}
+
+	if p1 != 0 {
+		r1 := q1 / p1
+		r2 := q2 / p2
+		if p1 < 0 {
+			negarr[negind] = r1
+			posarr[posind] = r2
+		} else {
+			negarr[negind] = r2
+			posarr[posind] = r1
+		}
+		negind += 1
+		posind += 1
+	}
+
+	if p3 != 0 {
+		r3 := q3 / p3
+		r4 := q4 / p4
+		if (p3 < 0) {
+			negarr[negind] = r3
+			posarr[posind] = r4
+		} else {
+			negarr[negind] = r4
+			posarr[posind] = r3
+		}
+		negind += 1
+		posind += 1
+	}
+
+	rn1 := negarr[0]
+	for neg in negarr[1:negind] {
+		rn1 = max(rn1, neg)
+	}
+	rn2 := posarr[0]
+	for pos in posarr[1:posind] {
+		rn2 = min(rn2, pos)
+	}
+
+	// NOTE(sen) Line outside clipping window
+	if rn1 > rn2 {
+		return result
+	}
+
+	result.start.x = line.start.x + p2 * rn1
+	result.start.y = line.start.y + p4 * rn1
+
+	result.end.x = line.start.x + p2 * rn2
+	result.end.y = line.start.y + p4 * rn2
+
+	return result
+}
+
 ndc_to_pixels :: proc(point_ndc: [2]f32, pixels_dim: [2]int) -> [2]f32 {
 	point_01 := point_ndc * [2]f32{0.5, -0.5} + 0.5
 	point_px := point_01 * [2]f32{f32(pixels_dim.x - 1), f32(pixels_dim.y - 1)}
 	return point_px
-}
-
-between_int :: proc(input: int, left: int, right: int) -> bool {
-	result := input >= left && input <= right
-	return result
-}
-
-between_2int :: proc(input: [2]int, left: [2]int, right: [2]int) -> bool {
-	result := between(input.x, left.x, right.x) && between(input.y, left.y, right.y)
-	return result
-}
-
-between :: proc {
-	between_int,
-	between_2int,
-}
-
-round_f32 :: proc(input: f32) -> int {
-	result := int(math.round(input))
-	return result
-}
-
-round_2f32 :: proc(input: [2]f32) -> [2]int {
-	result := [2]int{round(input.x), round(input.y)}
-	return result
-}
-
-round :: proc {
-	round_f32,
-	round_2f32,
-}
-
-safe_ratio1 :: proc(v1: f32, v2: f32) -> f32 {
-	result: f32 = 1
-	if v2 != 0 {
-		result = v1 / v2
-	}
-	return result
-}
-
-clamp_int :: proc(input: int, min: int, max: int) -> int {
-	result := builtin.clamp(input, min, max)
-	return result
-}
-
-clamp_f32 :: proc(input: f32, min: f32, max: f32) -> f32 {
-	result := builtin.clamp(input, min, max)
-	return result
-}
-
-clamp_2int :: proc(input: [2]int, min: [2]int, max: [2]int) -> [2]int {
-	result := input
-	result.x = clamp_int(input.x, min.x, max.x)
-	result.y = clamp_int(input.y, min.y, max.y)
-	return result
-}
-
-clamp_2f32 :: proc(input: [2]f32, min: [2]f32, max: [2]f32) -> [2]f32 {
-	result := input
-	result.x = clamp_f32(input.x, min.x, max.x)
-	result.y = clamp_f32(input.y, min.y, max.y)
-	return result
-}
-
-clamp :: proc {
-	clamp_int,
-	clamp_2int,
-	clamp_f32,
-	clamp_2f32,
-}
-
-draw_pixel :: proc(renderer: ^Renderer, pos: [2]int, color: u32) {
-	if pos.x >= 0 && pos.x < renderer.pixels_dim.x && pos.y >= 0 && pos.y < renderer.pixels_dim.y {
-		renderer.pixels[pos.y * renderer.pixels_dim.x + pos.x] = color
-	}
 }
 
 color_to_u32argb :: proc(color01: [4]f32) -> u32 {
