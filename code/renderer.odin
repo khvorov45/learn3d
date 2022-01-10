@@ -55,6 +55,7 @@ Triangle :: struct {
 
 Polygon :: struct {
 	vertices:     [9][3]f32,
+	texture:      [9][2]f32,
 	vertex_count: int,
 }
 
@@ -176,12 +177,14 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 		assert(polygon.vertex_count >= 3)
 
 		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
+		prev_tex := polygon.texture[polygon.vertex_count - 1]
 		prev_dot := linalg.dot(prev_vertex - plane.point, plane.normal)
 		prev_inside := prev_dot >= 0
 
 		for vertex_index in 0 ..< polygon.vertex_count {
 
 			this_vertex := polygon.vertices[vertex_index]
+			this_tex := polygon.texture[vertex_index]
 			this_dot := linalg.dot(this_vertex - plane.point, plane.normal)
 
 			if this_dot < 0 {
@@ -192,7 +195,9 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 					range := prev_dot - this_dot
 					from_prev := prev_dot / range
 					intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
+					tex_intersection := (1 - from_prev) * prev_tex + from_prev * this_tex
 					result.vertices[result.vertex_count] = intersection
+					result.texture[result.vertex_count] = tex_intersection
 					result.vertex_count += 1
 
 				}
@@ -207,12 +212,15 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 					range := this_dot - prev_dot
 					from_this := this_dot / range
 					intersection := (1 - from_this) * this_vertex + from_this * prev_vertex
+					tex_intersection := (1 - from_this) * this_tex + from_this * prev_tex
 					result.vertices[result.vertex_count] = intersection
+					result.texture[result.vertex_count] = tex_intersection
 					result.vertex_count += 1
 
 				}
 
 				result.vertices[result.vertex_count] = this_vertex
+				result.texture[result.vertex_count] = this_tex
 				result.vertex_count += 1
 
 				prev_inside = true
@@ -220,6 +228,7 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 			}
 
 			prev_vertex = this_vertex
+			prev_tex = this_tex
 			prev_dot = this_dot
 
 		}
@@ -269,6 +278,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 		for fi, vi in mesh_triangle.indices {
 			vert := renderer.vertices_camera_space[fi + face_offset]
 			polygon.vertices[vi] = vert.xyz
+			polygon.texture[vi] = mesh_triangle.texture[vi]
 		}
 		for plane_index in 0 ..< int(ClipPlane.Count) {
 			polygon = clip_against_plane(polygon, renderer.clip_planes[plane_index])
@@ -284,6 +294,11 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 			vertices[1].w = 1
 			vertices[2].xyz = polygon.vertices[clipped_triangle_index - 1]
 			vertices[2].w = 1
+
+			tex_coords: [3][2]f32
+			tex_coords[0] = polygon.texture[0]
+			tex_coords[1] = polygon.texture[clipped_triangle_index - 2]
+			tex_coords[2] = polygon.texture[clipped_triangle_index - 1]
 
 			ab := vertices[1].xyz - vertices[0].xyz
 			ac := vertices[2].xyz - vertices[0].xyz
@@ -319,14 +334,7 @@ render_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				if .FilledTriangles in renderer.options {
 					shaded_color := mesh_triangle.color
 					shaded_color.rgb *= light_normal_dot
-					draw_triangle(
-						renderer,
-						vertices_px,
-						shaded_color,
-						mesh_triangle.texture,
-						og_zw,
-						texture,
-					)
+					draw_triangle(renderer, vertices_px, shaded_color, tex_coords, og_zw, texture)
 				}
 
 				if .Wireframe in renderer.options {
