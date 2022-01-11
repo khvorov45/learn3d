@@ -20,20 +20,29 @@ main :: proc() {
 		10,
 	)
 
-	mesh: Mesh
-	mesh.scale = 1
-	mesh.translation.z += 3.5
-	//mesh.rotation = [3]f32{-0.440000027, -1.71999907, 0.0399999991}
-	mesh.vertices, mesh.triangles = read_obj(
-		read_file("assets/f22.obj"),
-		renderer.vertices[renderer.vertex_count:],
-		renderer.triangles[renderer.triangle_count:],
-	)
+	read_mesh :: proc(renderer: ^Renderer, name: string, translation: [3]f32) -> (
+		Mesh,
+		Texture,
+	) {
+		mesh: Mesh
+		mesh.scale = 1
+		mesh.translation = translation
+		mesh.vertices, mesh.triangles = read_obj(
+			read_file(fmt.tprintf("assets/{}.obj", name)),
+			renderer.vertices[renderer.vertex_count:],
+			renderer.triangles[renderer.triangle_count:],
+		)
 
-	renderer.vertex_count += len(mesh.vertices)
-	renderer.triangle_count += len(mesh.triangles)
+		renderer.vertex_count += len(mesh.vertices)
+		renderer.triangle_count += len(mesh.triangles)
 
-	texture := read_image(read_file("assets/f22.png"))
+		texture := read_image(read_file(fmt.tprintf("assets/{}.png", name)))
+
+		return mesh, texture
+	}
+
+	mesh_f22, texture_f22 := read_mesh(&renderer, "f22", [3]f32{3, 0, 3.5})
+	mesh_f117, texture_f117 := read_mesh(&renderer, "f117", [3]f32{-3, 0, 3.5})
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
@@ -143,7 +152,8 @@ main :: proc() {
 
 		clear(&renderer)
 
-		draw_mesh(&renderer, mesh, texture)
+		draw_mesh(&renderer, mesh_f22, texture_f22)
+		draw_mesh(&renderer, mesh_f117, texture_f117)
 
 		draw_rect_px(
 			&renderer,

@@ -142,7 +142,6 @@ clear :: proc(renderer: ^Renderer) {
 	for z_val in &renderer.z_buffer {
 		z_val = math.inf_f32(1)
 	}
-	renderer.vertex_camera_space_count = 0
 }
 
 draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
@@ -165,8 +164,9 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	model_to_camera_transform := camera_transform * world_transform
 
+	renderer.vertex_camera_space_count = 0
+
 	// NOTE(sen) Transfrom from model to camera
-	face_offset := renderer.vertex_camera_space_count
 	for vertex in mesh.vertices {
 		vertex_camera := model_to_camera_transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
 		renderer.vertices_camera_space[renderer.vertex_camera_space_count] = vertex_camera
@@ -182,7 +182,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 		// NOTE(sen) Back-face culling
 		mesh_triangle_vertices: [3][3]f32
 		for fi, vi in mesh_triangle.indices {
-			vert := renderer.vertices_camera_space[fi + face_offset]
+			vert := renderer.vertices_camera_space[fi]
 			mesh_triangle_vertices[vi] = vert.xyz
 		}
 		ab := mesh_triangle_vertices[1].xyz - mesh_triangle_vertices[0].xyz
