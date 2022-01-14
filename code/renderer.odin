@@ -18,6 +18,8 @@ import "core:slice"
 import "core:os"
 import "core:mem"
 
+import bf "bitmap_font"
+
 Renderer :: struct {
 	pixels:                    []u32,
 	pixels_dim:                [2]int,
@@ -511,6 +513,50 @@ draw_line_px :: proc(renderer: ^Renderer, line: LineSegment2d, color: u32) {
 		renderer.pixels[cur_rounded_y * renderer.pixels_dim.x + cur_rounded_x] = color
 		cur += inc
 	}
+}
+
+// Each byte of the bitmap is assumed to be a row
+draw_bitmap_glyph_px :: proc(
+	renderer: ^Renderer,
+	glyph: u8,
+	topleft: [2]f32,
+	color: u32,
+) {
+
+	px_coords := [2]int{int(math.ceil(topleft.x)), int(math.ceil(topleft.y))}
+	px := renderer.pixels[px_coords.y * renderer.pixels_dim.x + px_coords.x:]
+
+	bitmap := bf.get_glyph_u8_slice(glyph)
+
+	for row in bitmap {
+
+		for col in u8(0) ..< 8 {
+
+			if (row & (1 << col)) != 0 {
+				px[col] = color
+			}
+
+		}
+
+		px = px[renderer.pixels_dim.x:]
+	}
+
+}
+
+draw_bitmap_string_px :: proc(
+	renderer: ^Renderer,
+	str: string,
+	topleft: [2]f32,
+	color: u32,
+) {
+
+	topleft := topleft
+	for i in 0 ..< len(str) {
+		glyph := str[i]
+		draw_bitmap_glyph_px(renderer, glyph, topleft, color)
+		topleft.x += bf.GLYPH_WIDTH_PX
+	}
+
 }
 
 get_clip_planes :: proc(

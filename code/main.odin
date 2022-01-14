@@ -8,6 +8,8 @@ import "core:math/linalg"
 
 import mu "vendor:microui"
 
+import bf "bitmap_font"
+
 main :: proc() {
 
 	window: Window
@@ -55,8 +57,15 @@ main :: proc() {
 
 	ui: mu.Context
 	mu.init(&ui)
-	ui.text_width = mu.default_atlas_text_width
-	ui.text_height = mu.default_atlas_text_height
+	{
+		text_width := proc(font: mu.Font, text: string) -> i32 {
+			return i32(bf.GLYPH_WIDTH_PX * len(text))
+		}
+		ui.text_width = text_width
+		ui.text_height = proc(font: mu.Font) -> i32 {return bf.GLYPH_HEIGHT_PX}
+	}
+
+	bitmap_font_tex := bf.get_texture_u8_slice()
 
 	for window.is_running {
 
@@ -189,6 +198,9 @@ main :: proc() {
 				switch cmd in ui_cmd.variant {
 
 				case ^mu.Command_Text:
+					coords := [2]f32{f32(cmd.pos.x), f32(cmd.pos.y)}
+					color := mu_color_to_u32(cmd.color)
+					draw_bitmap_string_px(&renderer, cmd.str, coords, color)
 
 				case ^mu.Command_Rect:
 					rect := Rect2d{
