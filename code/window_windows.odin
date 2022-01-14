@@ -2,6 +2,7 @@ package learn3d
 
 import "core:sys/win32"
 import "core:fmt"
+import "core:runtime"
 
 foreign import my_win32 "system:User32.lib"
 
@@ -12,17 +13,16 @@ foreign my_win32 {
 	show_cursor :: proc(show: win32.Bool) -> i32 ---
 }
 
-GlobalRunning := true
-
 PlatformWindow :: struct {
 	decorations_dim:    [2]int,
 	hwnd:               win32.Hwnd,
 	hdc:                win32.Hdc,
 	pixel_info:         win32.Bitmap_Info,
 	previous_placement: win32.Window_Placement,
+	context_creation:   runtime.Context,
 }
 
-create_window :: proc(title: string, width: int, height: int) -> Window {
+init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 
 	window_class_name := title
 	window_name := window_class_name
@@ -36,7 +36,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	window_class: win32.Wnd_Class_Ex_A
 	window_class.size = size_of(window_class)
 	window_class.style = win32.CS_HREDRAW | win32.CS_VREDRAW
-	window_class.wnd_proc = win32.Wnd_Proc(window_proc)
+	window_class.wnd_proc = window_proc
 	window_class.instance = win32.Hinstance(window_instance)
 	window_class.class_name = cstring(raw_data(window_class_name))
 	window_class.background = nil
@@ -44,7 +44,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 
 	assert(win32.register_class_ex_a(&window_class) != 0)
 
-	window := win32.create_window_ex_a(
+	hwnd := win32.create_window_ex_a(
 		0,
 		cstring(raw_data(window_class_name)),
 		cstring(raw_data(window_name)),
@@ -58,15 +58,17 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 		win32.Hinstance(window_instance),
 		nil,
 	)
-	assert(window != nil)
+	assert(hwnd != nil)
+
+	win32.set_window_long_ptr_a(hwnd, win32.GWLP_USERDATA, win32.Long_Ptr(uintptr(window)))
 
 	// NOTE(sen) Resize so that dim corresponds to the client area
 	decorations_dim: [2]int
 	{
 		client_rect: win32.Rect
-		win32.get_client_rect(window, &client_rect)
+		win32.get_client_rect(hwnd, &client_rect)
 		window_rect: win32.Rect
-		win32.get_window_rect(window, &window_rect)
+		win32.get_window_rect(hwnd, &window_rect)
 		client_rect_dim := [2]int{
 			int(client_rect.right - client_rect.left),
 			int(client_rect.bottom - client_rect.top),
@@ -78,7 +80,7 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 		decorations_dim = window_rect_dim - client_rect_dim
 
 		win32.set_window_pos(
-			window,
+			hwnd,
 			nil,
 			0,
 			0,
@@ -88,13 +90,14 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 		)
 	}
 
+
 	SW_SHOWNORMAL :: 1
 	SW_SHOWMINIMIZED :: 2
 
-	win32.show_window(window, SW_SHOWMINIMIZED)
-	win32.show_window(window, SW_SHOWNORMAL)
+	win32.show_window(hwnd, SW_SHOWMINIMIZED)
+	win32.show_window(hwnd, SW_SHOWNORMAL)
 
-	hdc := win32.get_dc(window)
+	hdc := win32.get_dc(hwnd)
 	assert(hdc != nil)
 
 	pixel_info: win32.Bitmap_Info
@@ -108,22 +111,6 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	previous_placement: win32.Window_Placement
 	previous_placement.length = size_of(previous_placement)
 
-	// NOTE(sen) Confine mouse to window
-	{
-		client_topleft := win32.Point{0, 0}
-		win32.client_to_screen(window, &client_topleft)
-		client_bottomright := win32.Point{i32(window_dim.x), i32(window_dim.y)}
-		win32.client_to_screen(window, &client_bottomright)
-
-		confine: win32.Rect
-		confine.left = client_topleft.x
-		confine.top = client_topleft.y
-		confine.right = client_bottomright.x
-		confine.bottom = client_bottomright.y
-		clip_cursor(&confine)
-	}
-	show_cursor(false)
-
 	// NOTE(sen) Register raw input mouse
 	{
 		HID_USAGE_PAGE_GENERIC :: 0x01
@@ -134,17 +121,47 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 		rid.usage_page = HID_USAGE_PAGE_GENERIC
 		rid.usage = HID_USAGE_GENERIC_MOUSE
 		rid.flags = RIDEV_INPUTSINK
-		rid.wnd_target = window
+		rid.wnd_target = hwnd
 		win32.register_raw_input_devices(&rid, 1, size_of(rid))
 	}
 
-	result := Window{
+	window^ = Window{
 		true,
 		false,
+		false,
 		window_dim,
-		{decorations_dim, window, hdc, pixel_info, previous_placement},
+		{decorations_dim, hwnd, hdc, pixel_info, previous_placement, context},
 	}
-	return result
+}
+
+toggle_camera_control :: proc(window: ^Window) {
+
+	hwnd := window.platform.hwnd
+
+	if window.camera_control {
+
+		clip_cursor(nil)
+		show_cursor(true)
+
+	} else {
+
+		client_topleft := win32.Point{0, 0}
+		win32.client_to_screen(hwnd, &client_topleft)
+		client_bottomright := win32.Point{i32(window.dim.x), i32(window.dim.y)}
+		win32.client_to_screen(hwnd, &client_bottomright)
+
+		confine: win32.Rect
+		confine.left = client_topleft.x
+		confine.top = client_topleft.y
+		confine.right = client_bottomright.x
+		confine.bottom = client_bottomright.y
+		clip_cursor(&confine)
+		show_cursor(false)
+
+	}
+
+	window.camera_control = !window.camera_control
+
 }
 
 poll_input :: proc(window: ^Window, input: ^Input) {
@@ -205,24 +222,28 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 				record_key(input, .Digit9, ended_down)
 			case '0':
 				record_key(input, .Digit0, ended_down)
+			case win32.VK_F1:
+				record_key(input, .F1, ended_down)
 			}
 
 		// NOTE(sen) Update mouse delta
 		case win32.WM_INPUT:
-			raw: win32.Raw_Input
-			size := u32(size_of(raw))
+			if window.camera_control {
+				raw: win32.Raw_Input
+				size := u32(size_of(raw))
 
-			win32.get_raw_input_data(
-				(cast(^win32.Hrawinput)&message.lparam)^,
-				win32.RID_INPUT,
-				&raw,
-				&size,
-				size_of(win32.Raw_Input_Header),
-			)
-			if raw.header.kind == win32.RIM_TYPEMOUSE {
-				x_pos := raw.data.mouse.last_x
-				y_pos := raw.data.mouse.last_y
-				input.cursor_delta = [2]f32{f32(x_pos), f32(y_pos)}
+				win32.get_raw_input_data(
+					(cast(^win32.Hrawinput)&message.lparam)^,
+					win32.RID_INPUT,
+					&raw,
+					&size,
+					size_of(win32.Raw_Input_Header),
+				)
+				if raw.header.kind == win32.RIM_TYPEMOUSE {
+					x_pos := raw.data.mouse.last_x
+					y_pos := raw.data.mouse.last_y
+					input.cursor_delta = [2]f32{f32(x_pos), f32(y_pos)}
+				}
 			}
 
 		case:
@@ -248,8 +269,6 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		cursor_client := [2]f32{f32(cursor_screen.x), f32(cursor_screen.y)}
 		input.cursor_pos = cursor_client
 	}
-
-	window.is_running = GlobalRunning
 
 }
 
@@ -279,8 +298,8 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
 }
 
-window_proc :: proc(
-	window: win32.Hwnd,
+window_proc :: proc "std" (
+	hwnd: win32.Hwnd,
 	message: u32,
 	wparam: win32.Wparam,
 	lparam: win32.Lparam,
@@ -288,11 +307,23 @@ window_proc :: proc(
 
 	result: win32.Lresult
 
-	switch message {
-	case win32.WM_DESTROY:
-		GlobalRunning = false
-	case:
-		result = win32.def_window_proc_a(window, message, wparam, lparam)
+	window := cast(^Window)uintptr(win32.get_window_long_ptr_a(hwnd, win32.GWLP_USERDATA))
+
+	if (window != nil) {
+		context = window.platform.context_creation
+
+		switch message {
+
+		case win32.WM_DESTROY:
+			window.is_running = false
+
+		case:
+			result = win32.def_window_proc_a(hwnd, message, wparam, lparam)
+
+		}
+
+	} else {
+		result = win32.def_window_proc_a(hwnd, message, wparam, lparam)
 	}
 
 	return result

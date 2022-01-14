@@ -11,11 +11,11 @@ PlatformWindow :: struct {
 	texture_dim: [2]int,
 }
 
-create_window :: proc(title: string, width: int, height: int) -> Window {
+init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 
 	assert(sdl.Init(sdl.INIT_EVERYTHING) == 0)
 
-	window := sdl.CreateWindow(
+	sdl_window := sdl.CreateWindow(
 		cstring(raw_data(title)),
 		sdl.WINDOWPOS_CENTERED,
 		sdl.WINDOWPOS_CENTERED,
@@ -23,15 +23,15 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 		i32(height),
 		sdl.WINDOW_HIDDEN,
 	)
-	assert(window != nil)
+	assert(sdl_window != nil)
 
-	renderer := sdl.CreateRenderer(window, -1, nil)
+	renderer := sdl.CreateRenderer(sdl_window, -1, nil)
 	assert(renderer != nil)
 
 	assert(sdl.SetRenderDrawColor(renderer, 0, 0, 0, 255) == 0)
 	assert(sdl.RenderClear(renderer) == 0)
 
-	sdl.ShowWindow(window)
+	sdl.ShowWindow(sdl_window)
 	sdl.RenderPresent(renderer)
 
 	texture := sdl.CreateTexture(
@@ -44,16 +44,26 @@ create_window :: proc(title: string, width: int, height: int) -> Window {
 	texture_dim := [2]int{width, height}
 	assert(texture != nil)
 
-	sdl.SetWindowMouseGrab(window, true)
-	sdl.SetRelativeMouseMode(true)
-
-	result := Window{
+	window^ = Window{
 		true,
 		false,
+		false,
 		[2]int{width, height},
-		{window, renderer, texture, texture_dim},
+		{sdl_window, renderer, texture, texture_dim},
 	}
-	return result
+}
+
+toggle_camera_control :: proc(window: ^Window) {
+
+	if window.camera_control {
+		sdl.SetWindowMouseGrab(window.platform.window, false)
+		sdl.SetRelativeMouseMode(false)
+	} else {
+		sdl.SetWindowMouseGrab(window.platform.window, true)
+		sdl.SetRelativeMouseMode(true)
+	}
+
+	window.camera_control = !window.camera_control
 }
 
 poll_input :: proc(window: ^Window, input: ^Input) {
@@ -113,10 +123,14 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 				record_key(input, .Space, ended_down)
 			case .LCTRL, .RCTRL:
 				record_key(input, .Ctrl, ended_down)
+			case .F1:
+				record_key(input, .F1, ended_down)
 			}
 
 		case .MOUSEMOTION:
-			input.cursor_delta = [2]f32{f32(event.motion.xrel), f32(event.motion.yrel)}
+			if window.camera_control {
+				input.cursor_delta = [2]f32{f32(event.motion.xrel), f32(event.motion.yrel)}
+			}
 
 		}
 

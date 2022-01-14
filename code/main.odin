@@ -6,9 +6,12 @@ import "core:fmt"
 import "core:mem"
 import "core:math/linalg"
 
+import mu "vendor:microui"
+
 main :: proc() {
 
-	window := create_window("learn3d", 1280, 720)
+	window: Window
+	init_window(&window, "learn3d", 1280, 720)
 
 	renderer := create_renderer(
 		window.dim.x,
@@ -49,6 +52,9 @@ main :: proc() {
 	target_frame_duration := time.Duration(target_frame_ns)
 
 	input: Input
+
+	ui: mu.Context
+	mu.init(&ui)
 
 	for window.is_running {
 
@@ -146,6 +152,10 @@ main :: proc() {
 			toggle_option(&renderer, .BackfaceCull)
 		}
 
+		if was_pressed(input, .F1) {
+			toggle_camera_control(&window)
+		}
+
 		//
 		// SECTION Render
 		//
@@ -154,12 +164,6 @@ main :: proc() {
 
 		draw_mesh(&renderer, mesh_f22, texture_f22)
 		draw_mesh(&renderer, mesh_f117, texture_f117)
-
-		draw_rect_px(
-			&renderer,
-			clip_to_px_buffer_rect(Rect2d{input.cursor_pos, [2]f32{4, 4}}, renderer.pixels_dim),
-			0xFFFF00FF,
-		)
 
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 
