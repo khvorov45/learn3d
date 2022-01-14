@@ -55,6 +55,8 @@ main :: proc() {
 
 	ui: mu.Context
 	mu.init(&ui)
+	ui.text_width = mu.default_atlas_text_width
+	ui.text_height = mu.default_atlas_text_height
 
 	for window.is_running {
 
@@ -156,6 +158,11 @@ main :: proc() {
 			toggle_camera_control(&window)
 		}
 
+		mu.begin(&ui)
+		mu.begin_window(&ui, "Test window", mu.Rect{0, 0, 100, 100})
+		mu.end_window(&ui)
+		mu.end(&ui)
+
 		//
 		// SECTION Render
 		//
@@ -164,6 +171,33 @@ main :: proc() {
 
 		draw_mesh(&renderer, mesh_f22, texture_f22)
 		draw_mesh(&renderer, mesh_f117, texture_f117)
+
+		if !window.camera_control {
+
+			ui_cmd: ^mu.Command = nil
+			for mu.next_command(&ui, &ui_cmd) {
+
+				switch cmd in ui_cmd.variant {
+
+				case ^mu.Command_Text:
+
+				case ^mu.Command_Rect:
+					rect := Rect2d{
+						[2]f32{f32(cmd.rect.x), f32(cmd.rect.y)},
+						[2]f32{f32(cmd.rect.w), f32(cmd.rect.h)},
+					}
+					draw_rect_px(&renderer, rect, mu_color_to_u32(cmd.color))
+
+				case ^mu.Command_Icon:
+
+				case ^mu.Command_Clip:
+
+				case ^mu.Command_Jump:
+
+				}
+			}
+
+		}
 
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
 
@@ -179,4 +213,10 @@ main :: proc() {
 
 	}
 
+}
+
+mu_color_to_u32 :: proc(col: mu.Color) -> u32 {
+	col := col
+	result := (cast(^u32)&col)^
+	return result
 }
