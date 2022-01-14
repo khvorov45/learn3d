@@ -53,6 +53,8 @@ main :: proc() {
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
 	target_frame_duration := time.Duration(target_frame_ns)
 
+	last_frame_work, last_frame_sleep: time.Duration
+
 	input: Input
 
 	ui: mu.Context
@@ -174,9 +176,24 @@ main :: proc() {
 		if !window.camera_control {
 
 			mu.begin(&ui)
-			if mu.begin_window(&ui, "Test window", mu.Rect{0, 0, 100, 100}) {
+
+			if mu.begin_window(&ui, "Timings", mu.Rect{0, 0, 250, 400}) {
+
+				work := time.duration_milliseconds(last_frame_work)
+				sleep := max(0, time.duration_milliseconds(last_frame_sleep))
+				total := work + sleep
+
+				row_widths := [2]i32{100, 100}
+				mu.layout_row(&ui, row_widths[:])
+				mu.text(&ui, "Work")
+				mu.text(&ui, fmt.tprintf("%.2f", work))
+				mu.text(&ui, "Sleep")
+				mu.text(&ui, fmt.tprintf("%.2f", sleep))
+				mu.text(&ui, "Total")
+				mu.text(&ui, fmt.tprintf("%.2f", total))
 				mu.end_window(&ui)
 			}
+
 			mu.end(&ui)
 
 		}
@@ -226,10 +243,10 @@ main :: proc() {
 		// SECTION Frame time
 		//
 
-		work_done_duration := time.since(time_frame_start)
-		to_sleep_duration := target_frame_duration - work_done_duration
-		if to_sleep_duration > 0 {
-			time.sleep(to_sleep_duration)
+		last_frame_work = time.since(time_frame_start)
+		last_frame_sleep = target_frame_duration - last_frame_work
+		if last_frame_sleep > 0 {
+			time.sleep(last_frame_sleep)
 		}
 
 	}
