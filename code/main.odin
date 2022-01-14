@@ -83,56 +83,60 @@ main :: proc() {
 			speed *= 5
 		}
 
-		// NOTE(sen) Rotate camera input
-		{
-			delta_z: f32 = 0
-			if input.keys[KeyID.Q].ended_down {
-				delta_z += speed
+		if window.camera_control {
+
+			// NOTE(sen) Rotate camera input
+			{
+				delta_z: f32 = 0
+				if input.keys[KeyID.Q].ended_down {
+					delta_z += speed
+				}
+				if input.keys[KeyID.E].ended_down {
+					delta_z -= speed
+				}
+				camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
+				renderer.camera_axes.x = camera_z_rotation * renderer.camera_axes.x
+				renderer.camera_axes.y = camera_z_rotation * renderer.camera_axes.y
 			}
-			if input.keys[KeyID.E].ended_down {
-				delta_z -= speed
+
+			{
+				camera_y_rotation := get_rotation3(
+					renderer.camera_axes.y,
+					input.cursor_delta.x * mouse_sensitivity,
+				)
+				renderer.camera_axes.x = camera_y_rotation * renderer.camera_axes.x
+				renderer.camera_axes.z = camera_y_rotation * renderer.camera_axes.z
 			}
-			camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
-			renderer.camera_axes.x = camera_z_rotation * renderer.camera_axes.x
-			renderer.camera_axes.y = camera_z_rotation * renderer.camera_axes.y
-		}
 
-		{
-			camera_y_rotation := get_rotation3(
-				renderer.camera_axes.y,
-				input.cursor_delta.x * mouse_sensitivity,
-			)
-			renderer.camera_axes.x = camera_y_rotation * renderer.camera_axes.x
-			renderer.camera_axes.z = camera_y_rotation * renderer.camera_axes.z
-		}
+			{
+				camera_x_rotation := get_rotation3(
+					renderer.camera_axes.x,
+					input.cursor_delta.y * mouse_sensitivity,
+				)
+				renderer.camera_axes.y = camera_x_rotation * renderer.camera_axes.y
+				renderer.camera_axes.z = camera_x_rotation * renderer.camera_axes.z
+			}
 
-		{
-			camera_x_rotation := get_rotation3(
-				renderer.camera_axes.x,
-				input.cursor_delta.y * mouse_sensitivity,
-			)
-			renderer.camera_axes.y = camera_x_rotation * renderer.camera_axes.y
-			renderer.camera_axes.z = camera_x_rotation * renderer.camera_axes.z
-		}
+			// NOTE(sen) Move camera input
+			if input.keys[KeyID.A].ended_down {
+				renderer.camera_pos -= speed * renderer.camera_axes.x
+			}
+			if input.keys[KeyID.D].ended_down {
+				renderer.camera_pos += speed * renderer.camera_axes.x
+			}
+			if input.keys[KeyID.W].ended_down {
+				renderer.camera_pos += speed * renderer.camera_axes.z
+			}
+			if input.keys[KeyID.S].ended_down {
+				renderer.camera_pos -= speed * renderer.camera_axes.z
+			}
+			if input.keys[KeyID.Space].ended_down {
+				renderer.camera_pos += speed * renderer.camera_axes.y
+			}
+			if input.keys[KeyID.Ctrl].ended_down {
+				renderer.camera_pos -= speed * renderer.camera_axes.y
+			}
 
-		// NOTE(sen) Move camera input
-		if input.keys[KeyID.A].ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.x
-		}
-		if input.keys[KeyID.D].ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.x
-		}
-		if input.keys[KeyID.W].ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.z
-		}
-		if input.keys[KeyID.S].ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.z
-		}
-		if input.keys[KeyID.Space].ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.y
-		}
-		if input.keys[KeyID.Ctrl].ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.y
 		}
 
 		if was_pressed(input, .Digit1) {
@@ -158,10 +162,15 @@ main :: proc() {
 			toggle_camera_control(&window)
 		}
 
-		mu.begin(&ui)
-		mu.begin_window(&ui, "Test window", mu.Rect{0, 0, 100, 100})
-		mu.end_window(&ui)
-		mu.end(&ui)
+		if !window.camera_control {
+
+			mu.begin(&ui)
+			if mu.begin_window(&ui, "Test window", mu.Rect{0, 0, 100, 100}) {
+				mu.end_window(&ui)
+			}
+			mu.end(&ui)
+
+		}
 
 		//
 		// SECTION Render
