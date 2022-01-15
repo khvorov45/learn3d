@@ -53,8 +53,6 @@ main :: proc() {
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
 	target_frame_duration := time.Duration(target_frame_ns)
 
-	last_frame_work, last_frame_sleep: time.Duration
-
 	input: Input
 
 	ui: mu.Context
@@ -71,18 +69,26 @@ main :: proc() {
 
 	for window.is_running {
 
-		time_frame_start := time.now()
+		begin_timed_frame()
+
+		time_frame_start := time.tick_now()
 
 		//
 		// SECTION Input
 		//
 
+		begin_timed_section("Input")
+
 		clear_half_transitions(&input)
 		poll_input(&window, &input)
+
+		end_timed_section()
 
 		//
 		// SECTION Update
 		//
+
+		begin_timed_section("Update")
 
 		if input.keys[KeyID.AltR].ended_down && was_pressed(input, .Enter) {
 			toggle_fullscreen(&window)
@@ -177,35 +183,71 @@ main :: proc() {
 
 			mu.begin(&ui)
 
-			if mu.begin_window(&ui, "Timings", mu.Rect{0, 0, 250, 400}) {
+			add_timed_section :: proc(ui: ^mu.Context, timed_section: ^TimedSection, depth := 0) {
 
-				work := time.duration_milliseconds(last_frame_work)
-				sleep := max(0, time.duration_milliseconds(last_frame_sleep))
-				total := work + sleep
+				indent :: proc(str: string, times: int) -> string {
+					result := str
+					for _ in 0 ..< times {
+						result = fmt.tprintf("   %s", result)
+					}
+					return result
+				}
+
+				mu.text(ui, indent(timed_section.id, depth))
+				delta := time.duration_milliseconds(
+					time.tick_diff(timed_section.start, timed_section.end.(time.Tick)),
+				)
+				mu.text(ui, indent(fmt.tprintf("%.2f", delta), depth))
+
+				if timed_section.child != nil {
+					add_timed_section(ui, timed_section.child, depth + 1)
+				}
+
+				if timed_section.next_sibling != nil {
+					add_timed_section(ui, timed_section.next_sibling, depth)
+				}
+			}
+
+
+			if mu.begin_window(&ui, "Timings", mu.Rect{0, 0, 250, 300}) {
 
 				row_widths := [2]i32{100, 100}
 				mu.layout_row(&ui, row_widths[:])
-				mu.text(&ui, "Work")
-				mu.text(&ui, fmt.tprintf("%.2f", work))
-				mu.text(&ui, "Sleep")
-				mu.text(&ui, fmt.tprintf("%.2f", sleep))
-				mu.text(&ui, "Total")
-				mu.text(&ui, fmt.tprintf("%.2f", total))
+
+				if LastFrameTimedSectionCount > 0 {
+					add_timed_section(&ui, &LastFrameTimedSectionStorage[0])
+				}
+
 				mu.end_window(&ui)
+
 			}
 
 			mu.end(&ui)
 
 		}
 
+		end_timed_section()
+
 		//
 		// SECTION Render
 		//
 
+		begin_timed_section("Render")
+
+		begin_timed_section("Clear")
+
 		clear(&renderer)
+
+		end_timed_section()
+
+		begin_timed_section("Draw mesh")
 
 		draw_mesh(&renderer, mesh_f22, texture_f22)
 		draw_mesh(&renderer, mesh_f117, texture_f117)
+
+		end_timed_section()
+
+		begin_timed_section("UI")
 
 		if !window.camera_control {
 
@@ -237,17 +279,37 @@ main :: proc() {
 
 		}
 
+		end_timed_section()
+
+		begin_timed_section("Display")
+
 		display_pixels(&window, renderer.pixels, renderer.pixels_dim)
+
+		end_timed_section()
+
+		end_timed_section()
 
 		//
 		// SECTION Frame time
 		//
 
-		last_frame_work = time.since(time_frame_start)
-		last_frame_sleep = target_frame_duration - last_frame_work
-		if last_frame_sleep > 0 {
-			time.sleep(last_frame_sleep)
+		begin_timed_section("Sleep")
+
+		frame_work := time.tick_since(time_frame_start)
+		frame_sleep := target_frame_duration - frame_work - time.Millisecond
+		if frame_sleep > 0 {
+			time.sleep(frame_sleep)
 		}
+
+		end_timed_section()
+
+		begin_timed_section("Spin")
+
+		for time.tick_since(time_frame_start) < target_frame_duration {}
+
+		end_timed_section()
+
+		end_timed_frame()
 
 	}
 
