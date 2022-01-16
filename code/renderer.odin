@@ -34,7 +34,6 @@ Renderer :: struct {
 	camera_pos:                [3]f32,
 	camera_axes:               [3][3]f32,
 	fov_horizontal, near, far: f32,
-	clip_planes:               [ClipPlane.Count]Plane,
 	projection:                matrix[4, 4]f32,
 }
 
@@ -62,7 +61,7 @@ Triangle :: struct {
 }
 
 Polygon :: struct {
-	vertices:     [9][3]f32,
+	vertices:     [9][4]f32,
 	texture:      [9][2]f32,
 	vertex_count: int,
 }
@@ -80,7 +79,6 @@ ClipPlane :: enum {
 	Bottom,
 	Near,
 	Far,
-	Count,
 }
 
 Plane :: struct {
@@ -122,7 +120,6 @@ create_renderer :: proc(
 		fov_horizontal = fov_horizontal,
 		near = near,
 		far = far,
-		clip_planes = get_clip_planes(fov_horizontal, height_over_width, near, far),
 		projection = perspective(fov_horizontal, height_over_width, near, far),
 	}
 	clear(&renderer)
@@ -182,10 +179,10 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 	for mesh_triangle in mesh.triangles {
 
 		// NOTE(sen) Back-face culling
-		mesh_triangle_vertices: [3][3]f32
+		mesh_triangle_vertices: [3][4]f32
 		for fi, vi in mesh_triangle.indices {
 			vert := renderer.vertices_camera_space[fi]
-			mesh_triangle_vertices[vi] = vert.xyz
+			mesh_triangle_vertices[vi] = vert
 		}
 		ab := mesh_triangle_vertices[1].xyz - mesh_triangle_vertices[0].xyz
 		ac := mesh_triangle_vertices[2].xyz - mesh_triangle_vertices[0].xyz
@@ -194,55 +191,49 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 		camera_ray := -mesh_triangle_vertices[0].xyz
 
 		camera_normal_dot := linalg.dot(normal, camera_ray)
+		light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
 
 		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
 			// NOTE(sen) Clipping
+			triangle_clip_space: [3][4]f32
+			for vertex, index in mesh_triangle_vertices {
+				triangle_clip_space[index] = renderer.projection * vertex
+			}
+
 			polygon: Polygon
 			polygon.vertex_count = 3
 			for vi in 0 ..< polygon.vertex_count {
-				polygon.vertices[vi] = mesh_triangle_vertices[vi]
+				polygon.vertices[vi] = triangle_clip_space[vi]
 				polygon.texture[vi] = mesh_triangle.texture[vi]
 			}
-			for plane_index in 0 ..< int(ClipPlane.Count) {
-				polygon = clip_against_plane(polygon, renderer.clip_planes[plane_index])
+			polygon_clipped := polygon
+			for plane in ClipPlane {
+				polygon_clipped = clip_in_clip_space(polygon_clipped, plane)
 			}
 
-			// NOTE(sen) Draw clipped
-			for clipped_triangle_index in 3 .. polygon.vertex_count {
+			for index in 0 ..< polygon_clipped.vertex_count {
+				vertex := &polygon_clipped.vertices[index]
+				vertex.xy /= vertex.w
+			}
+
+			for clipped_triangle_index in 3 .. polygon_clipped.vertex_count {
 
 				vertices: [3][4]f32
-				vertices[0].xyz = polygon.vertices[0]
-				vertices[0].w = 1
-				vertices[1].xyz = polygon.vertices[clipped_triangle_index - 2]
-				vertices[1].w = 1
-				vertices[2].xyz = polygon.vertices[clipped_triangle_index - 1]
-				vertices[2].w = 1
+				vertices[0] = polygon_clipped.vertices[0]
+				vertices[1] = polygon_clipped.vertices[clipped_triangle_index - 2]
+				vertices[2] = polygon_clipped.vertices[clipped_triangle_index - 1]
 
 				tex_coords: [3][2]f32
-				tex_coords[0] = polygon.texture[0]
-				tex_coords[1] = polygon.texture[clipped_triangle_index - 2]
-				tex_coords[2] = polygon.texture[clipped_triangle_index - 1]
-
-				light_normal_dot := clamp(linalg.dot(normal, -light_ray), 0, 1)
-
-				get_px :: proc(vertex: [4]f32, proj: matrix[4, 4]f32, pixels_dim: [2]int) -> [2]f32 {
-					vertex_projected := proj * vertex
-					assert(vertex_projected.w != 0) // NOTE(sen) Because of clipping
-					vertex_projected.xyz /= vertex_projected.w
-					vertex_pixels := ndc_to_pixels(vertex_projected.xy, pixels_dim)
-					return vertex_pixels
-				}
+				tex_coords[0] = polygon_clipped.texture[0]
+				tex_coords[1] = polygon_clipped.texture[clipped_triangle_index - 2]
+				tex_coords[2] = polygon_clipped.texture[clipped_triangle_index - 1]
 
 				vertices_px: [3][2]f32
 				og_zw: [3][2]f32
 				for vertex, index in vertices {
-					vertex_projected := renderer.projection * vertex
-					if vertex_projected.w != 0 {
-						vertex_projected.xyz /= vertex_projected.w
-					}
-					vertices_px[index] = ndc_to_pixels(vertex_projected.xy, renderer.pixels_dim)
-					og_zw[index] = vertex_projected.zw
+					vertices_px[index] = ndc_to_pixels(vertex.xy, renderer.pixels_dim)
+					og_zw[index] = vertex.zw
 				}
 
 				if .FilledTriangles in renderer.options {
@@ -269,10 +260,18 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 					}
 				}
 
-				est_center := (vertices[0] + vertices[1] + vertices[2]) / 3
-				est_center_px := get_px(est_center, renderer.projection, renderer.pixels_dim)
+			}
+
+			if polygon_clipped.vertex_count > 0 {
+
+				vert := mesh_triangle_vertices
+				est_center := (vert[0] + vert[1] + vert[2]) / 3
+				est_center_ndc := renderer.projection * est_center
+				est_center_ndc.xy /= est_center_ndc.w
+				est_center_px := ndc_to_pixels(est_center_ndc.xy, renderer.pixels_dim)
 
 				if .Midpoints in renderer.options {
+
 					draw_rect_px(
 						renderer,
 						clip_to_px_buffer_rect(Rect2d{est_center_px, [2]f32{4, 4}}, renderer.pixels_dim),
@@ -282,12 +281,18 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 				if .Normals in renderer.options {
 					normal_tip := 0.3 * normal + est_center.xyz
-					normal_tip_px := get_px(
-						[4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 0},
-						renderer.projection,
-						renderer.pixels_dim,
+					normal_tip4 := [4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 1}
+					normal_tip_ndc := renderer.projection * normal_tip4
+					normal_tip_ndc.xy /= normal_tip_ndc.w
+					normal_tip_px := ndc_to_pixels(normal_tip_ndc.xy, renderer.pixels_dim)
+					draw_line_px(
+						renderer,
+						clip_to_px_buffer_line(
+							LineSegment2d{est_center_px, normal_tip_px},
+							renderer.pixels_dim,
+						),
+						0xFFFF00FF,
 					)
-					draw_line_px(renderer, LineSegment2d{est_center_px, normal_tip_px}, 0xFFFF00FF)
 				}
 
 			}
@@ -559,40 +564,26 @@ draw_bitmap_string_px :: proc(
 
 }
 
-get_clip_planes :: proc(
-	fov_horizontal,
-	height_over_width,
-	near,
-	far: f32,
-) -> [ClipPlane.Count]Plane {
-
-	half_fov_horizontal := fov_horizontal * 0.5
-
-	tan_vertical := height_over_width * math.tan(half_fov_horizontal)
-
-	half_fov_vertical := math.atan(tan_vertical)
-
-	cos_h := math.cos(half_fov_horizontal)
-	sin_h := math.sin(half_fov_horizontal)
-
-	cos_v := math.cos(half_fov_vertical)
-	sin_v := math.sin(half_fov_vertical)
-
-	planes: [ClipPlane.Count]Plane
-
-	planes[ClipPlane.Left] = Plane{{0, 0, 0}, {cos_h, 0, sin_h}}
-	planes[ClipPlane.Right] = Plane{{0, 0, 0}, {-cos_h, 0, sin_h}}
-
-	planes[ClipPlane.Top] = Plane{{0, 0, 0}, {0, -cos_v, sin_v}}
-	planes[ClipPlane.Bottom] = Plane{{0, 0, 0}, {0, cos_v, sin_v}}
-
-	planes[ClipPlane.Near] = Plane{{0, 0, near}, {0, 0, 1}}
-	planes[ClipPlane.Far] = Plane{{0, 0, far}, {0, 0, -1}}
-
-	return planes
+get_clipspace_normal_dot :: proc(vertex: [4]f32, plane: ClipPlane) -> f32 {
+	result: f32
+	switch plane {
+	case .Near:
+		result = vertex.z
+	case .Far:
+		result = vertex.w - vertex.z
+	case .Left:
+		result = vertex.x - -vertex.w
+	case .Right:
+		result = vertex.w - vertex.x
+	case .Bottom:
+		result = vertex.y - -vertex.w
+	case .Top:
+		result = vertex.w - vertex.y
+	}
+	return result
 }
 
-clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
+clip_in_clip_space :: proc(polygon: Polygon, plane: ClipPlane) -> Polygon {
 
 	result: Polygon
 
@@ -602,13 +593,14 @@ clip_against_plane :: proc(polygon: Polygon, plane: Plane) -> Polygon {
 
 		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
 		prev_tex := polygon.texture[polygon.vertex_count - 1]
-		prev_dot := linalg.dot(prev_vertex - plane.point, plane.normal)
+
+		prev_dot := get_clipspace_normal_dot(prev_vertex, plane)
 
 		for vertex_index in 0 ..< polygon.vertex_count {
 
 			this_vertex := polygon.vertices[vertex_index]
 			this_tex := polygon.texture[vertex_index]
-			this_dot := linalg.dot(this_vertex - plane.point, plane.normal)
+			this_dot := get_clipspace_normal_dot(this_vertex, plane)
 
 			if prev_dot * this_dot < 0 {
 
@@ -674,7 +666,7 @@ clip_to_px_buffer_rect :: proc(rect: Rect2d, px_dim: [2]int) -> Rect2d {
 // https://en.wikipedia.org/wiki/Liang%E2%80%93Barsky_algorithm
 clip_to_px_buffer_line :: proc(line: LineSegment2d, px_dim: [2]int) -> LineSegment2d {
 
-	dim_f32 := [2]f32{f32(px_dim.x), f32(px_dim.y)}
+	dim_f32 := [2]f32{f32(px_dim.x - 1), f32(px_dim.y - 1)}
 
 	p1 := -(line.end.x - line.start.x)
 	p2 := -p1
@@ -850,7 +842,9 @@ get_rotation3 :: proc(axis: [3]f32, angle: f32) -> matrix[3, 3]f32 {
 	return result
 }
 
-
+// x, y -> -1, 1
+// z -> 0, 1
+// Only x and y need perspective divide
 perspective :: proc(
 	fov_horizontal,
 	height_over_width,
@@ -864,7 +858,7 @@ perspective :: proc(
 	itan_h := 1 / tan_h
 	itan_v := 1 / tan_v
 
-	z_coef := z_far / (z_far - z_near)
+	z_coef := 1 / (z_far - z_near)
 
 	result: matrix[4, 4]f32
 
