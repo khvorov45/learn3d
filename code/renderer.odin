@@ -14,9 +14,6 @@ clipping or bounds-checking
 import "core:math"
 import "core:math/linalg"
 import "core:builtin"
-import "core:slice"
-import "core:os"
-import "core:mem"
 
 import bf "bitmap_font"
 
@@ -359,8 +356,6 @@ draw_triangle_px :: proc(
 	tex_top *= one_over_w_top
 	tex_mid *= one_over_w_mid
 	tex_bottom *= one_over_w_bottom
-
-	px_count := renderer.pixels_dim.y * renderer.pixels_dim.x
 
 	// NOTE(khvorov) Flat bottom
 	{
@@ -801,7 +796,6 @@ rotation :: proc(axis: [3]f32, angle: f32) -> matrix[4, 4]f32 {
 	cos := math.cos(angle)
 	sin := math.sin(angle)
 	icos := 1 - cos
-	isin := 1 - sin
 
 	result: matrix[4, 4]f32
 
@@ -829,7 +823,6 @@ get_rotation3 :: proc(axis: [3]f32, angle: f32) -> matrix[3, 3]f32 {
 	cos := math.cos(angle)
 	sin := math.sin(angle)
 	icos := 1 - cos
-	isin := 1 - sin
 
 	result: matrix[3, 3]f32
 

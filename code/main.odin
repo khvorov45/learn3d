@@ -1,10 +1,7 @@
 package learn3d
 
 import "core:time"
-import "core:os"
 import "core:fmt"
-import "core:mem"
-import "core:math/linalg"
 
 import mu "vendor:microui"
 
@@ -68,8 +65,6 @@ main :: proc() {
 		ui.text_width = text_width
 		ui.text_height = proc(font: mu.Font) -> i32 {return bf.GLYPH_HEIGHT_PX}
 	}
-
-	bitmap_font_tex := bf.get_texture_u8_slice()
 
 	init_global_timings()
 
