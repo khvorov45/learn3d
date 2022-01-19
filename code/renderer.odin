@@ -233,16 +233,16 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 				tex_coords[2] = polygon_clipped.texture[clipped_triangle_index - 1]
 
 				vertices_px: [3][2]f32
-				og_zw: [3][2]f32
+				og_w: [3]f32
 				for vertex, index in vertices {
 					vertices_px[index] = ndc_to_pixels(vertex.xy, renderer.pixels_dim)
-					og_zw[index] = vertex.zw
+					og_w[index] = vertex.w
 				}
 
 				if .FilledTriangles in renderer.options {
 					shaded_color := mesh_triangle.color
 					shaded_color.rgb *= light_normal_dot
-					draw_triangle_px(renderer, vertices_px, shaded_color, tex_coords, og_zw, texture)
+					draw_triangle_px(renderer, vertices_px, shaded_color, tex_coords, og_w, texture)
 				}
 
 				if .Wireframe in renderer.options {
@@ -311,7 +311,7 @@ draw_triangle_px :: proc(
 	vertices: [3][2]f32,
 	color: [4]f32,
 	tex_coords: [3][2]f32,
-	zw: [3][2]f32,
+	og_w: [3]f32,
 	texture: Texture,
 ) {
 
@@ -323,21 +323,21 @@ draw_triangle_px :: proc(
 	// NOTE(sen) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
 	tex_top, tex_mid, tex_bottom := tex_coords[0], tex_coords[1], tex_coords[2]
-	zw_top, zw_mid, zw_bottom := zw[0], zw[1], zw[2]
+	w_top, w_mid, w_bottom := og_w[0], og_w[1], og_w[2]
 	if top.y > mid.y {
 		top, mid = mid, top
 		tex_top, tex_mid = tex_mid, tex_top
-		zw_top, zw_mid = zw_mid, zw_top
+		w_top, w_mid = w_mid, w_top
 	}
 	if mid.y > bottom.y {
 		mid, bottom = bottom, mid
 		tex_mid, tex_bottom = tex_bottom, tex_mid
-		zw_mid, zw_bottom = zw_bottom, zw_mid
+		w_mid, w_bottom = w_bottom, w_mid
 	}
 	if top.y > mid.y {
 		top, mid = mid, top
 		tex_top, tex_mid = tex_mid, tex_top
-		zw_top, zw_mid = zw_mid, zw_top
+		w_top, w_mid = w_mid, w_top
 	}
 
 	// NOTE(sen) Midline
@@ -353,9 +353,9 @@ draw_triangle_px :: proc(
 	bc := bottom - mid
 	one_over_twice_abc_area := 1 / linalg.cross(ab, ac)
 	tex_dim_f32 := [2]f32{f32(texture.dim.x), f32(texture.dim.y)}
-	one_over_w_top := 1 / zw_top[1]
-	one_over_w_mid := 1 / zw_mid[1]
-	one_over_w_bottom := 1 / zw_bottom[1]
+	one_over_w_top := 1 / w_top
+	one_over_w_mid := 1 / w_mid
+	one_over_w_bottom := 1 / w_bottom
 	tex_top *= one_over_w_top
 	tex_mid *= one_over_w_mid
 	tex_bottom *= one_over_w_bottom
