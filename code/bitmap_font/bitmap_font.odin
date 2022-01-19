@@ -11,19 +11,19 @@ GLYPH_WIDTH_PX :: 8
 ROWS_PER_GLYPH :: 16
 
 get_texture_u8_slice :: proc() -> []u8 {
-	data := cast([^]u8)&BITMAP_TEXTURE
-	result := data[:len(BITMAP_TEXTURE) * 8]
+	data := cast([^]u8)&GlobalBitmapTexture
+	result := data[:len(GlobalBitmapTexture) * 8]
 	return result
 }
 
 get_glyph_u8_slice :: proc(ch: u8) -> []u8 {
-	data := cast([^]u8)&BITMAP_TEXTURE
+	data := cast([^]u8)&GlobalBitmapTexture
 	glyph_start := int(ch) * ROWS_PER_GLYPH
 	glyph_data := data[glyph_start:glyph_start + ROWS_PER_GLYPH]
 	return glyph_data
 }
 
-BITMAP_TEXTURE := [?]u64{
+GlobalBitmapTexture := [?]u64{
 	0x0000000000000000,
 	0x0000000000000000,
 	0xBD8181A5817E0000,
