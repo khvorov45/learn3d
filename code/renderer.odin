@@ -145,6 +145,9 @@ clear :: proc(renderer: ^Renderer) {
 
 draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
+	begin_timed_section(.DrawMesh)
+	defer end_timed_section(.DrawMesh)
+
 	scale4 := scale(mesh.scale)
 
 	rotation4 := rotation([3]f32{1, 0, 0}, mesh.rotation.x)
@@ -311,6 +314,9 @@ draw_triangle_px :: proc(
 	zw: [3][2]f32,
 	texture: Texture,
 ) {
+
+	begin_timed_section(.DrawTriangle)
+	defer end_timed_section(.DrawTriangle)
 
 	color := color
 

@@ -2,68 +2,60 @@ package learn3d
 
 import "core:time"
 
-TimedSectionStorage: [100]TimedSection
-
-ThisFrameTimedSectionStorage := TimedSectionStorage[:50]
-LastFrameTimedSectionStorage := TimedSectionStorage[50:]
-
-ThisFrameTimedSectionCount := 0
-LastFrameTimedSectionCount := 0
-
-CurrentTimedSection: ^TimedSection
+TimedSectionID :: enum {
+	Frame,
+	Input,
+	Update,
+	Render,
+	Clear,
+	DrawMesh,
+	DrawTriangle,
+	UI,
+	Display,
+	Sleep,
+	Spin,
+}
 
 TimedSection :: struct {
-	id:                          string,
-	start:                       time.Tick,
-	end:                         Maybe(time.Tick),
-	parent, next_sibling, child: ^TimedSection,
+	last_start: time.Tick,
+	total_ms:   f64,
+	hit_count:  int,
+}
+
+Timings :: struct {
+	storage:    [len(TimedSectionID) * 2]TimedSection,
+	this_frame: []TimedSection,
+	last_frame: []TimedSection,
+}
+
+GlobalTimings: Timings
+
+init_global_timings :: proc() {
+	GlobalTimings.this_frame = GlobalTimings.storage[:len(TimedSectionID)]
+	GlobalTimings.last_frame = GlobalTimings.storage[len(TimedSectionID):]
 }
 
 begin_timed_frame :: proc() {
-	begin_timed_section("Frame")
+	begin_timed_section(.Frame)
 }
 
 end_timed_frame :: proc() {
-	end_timed_section()
+	end_timed_section(.Frame)
 
-	ThisFrameTimedSectionStorage, LastFrameTimedSectionStorage = LastFrameTimedSectionStorage,
-	ThisFrameTimedSectionStorage
-
-	LastFrameTimedSectionCount = ThisFrameTimedSectionCount
-	ThisFrameTimedSectionCount = 0
-
-	CurrentTimedSection = nil
+	using GlobalTimings
+	this_frame, last_frame = last_frame, this_frame
+	for timed_section in &this_frame {
+		timed_section = TimedSection{time.Tick{0}, 0, 0}
+	}
 }
 
-begin_timed_section :: proc(id: string) {
-
-	assert(ThisFrameTimedSectionCount < len(ThisFrameTimedSectionStorage))
-
-	section := &ThisFrameTimedSectionStorage[ThisFrameTimedSectionCount]
-	ThisFrameTimedSectionCount += 1
-
-	section^ = TimedSection{id, time.tick_now(), nil, nil, nil, nil}
-
-	if CurrentTimedSection != nil {
-		if CurrentTimedSection.end == nil {
-			section.parent = CurrentTimedSection
-			CurrentTimedSection.child = section
-		} else {
-			CurrentTimedSection.next_sibling = section
-			section.parent = CurrentTimedSection.parent
-		}
-	}
-
-	CurrentTimedSection = section
+begin_timed_section :: proc(id: TimedSectionID) {
+	section := &GlobalTimings.this_frame[id]
+	section.last_start = time.tick_now()
 }
 
-end_timed_section :: proc() {
-
-	assert(CurrentTimedSection != nil)
-	if CurrentTimedSection.end != nil {
-		CurrentTimedSection = CurrentTimedSection.parent
-		assert(CurrentTimedSection != nil)
-	}
-	CurrentTimedSection.end = time.tick_now()
-
+end_timed_section :: proc(id: TimedSectionID, count := 1) {
+	section := &GlobalTimings.this_frame[id]
+	section.hit_count += count
+	section.total_ms += time.duration_milliseconds(time.tick_since(section.last_start))
 }
