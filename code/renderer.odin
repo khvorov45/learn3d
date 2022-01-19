@@ -848,7 +848,7 @@ get_rotation3 :: proc(axis: [3]f32, angle: f32) -> matrix[3, 3]f32 {
 	return result
 }
 
-// x, y -> -1, 1
+// x, y -> -w, w
 // z -> 0, 1
 // Only x and y need perspective divide
 perspective :: proc(
