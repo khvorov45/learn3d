@@ -100,27 +100,31 @@ main :: proc() {
 			toggle_fullscreen(&window)
 		}
 
+		if was_pressed(input, .F1) {
+			toggle_mouse_camera_control(&window)
+		}
+
 		speed: f32 = 0.02
 		mouse_sensitivity: f32 = 0.01
 		if input.keys[KeyID.Shift].ended_down {
 			speed *= 5
 		}
 
-		if window.camera_control {
-
-			// NOTE(khvorov) Rotate camera input
-			{
-				delta_z: f32 = 0
-				if input.keys[KeyID.Q].ended_down {
-					delta_z += speed
-				}
-				if input.keys[KeyID.E].ended_down {
-					delta_z -= speed
-				}
-				camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
-				renderer.camera_axes.x = camera_z_rotation * renderer.camera_axes.x
-				renderer.camera_axes.y = camera_z_rotation * renderer.camera_axes.y
+		// NOTE(khvorov) Rotate camera input
+		{
+			delta_z: f32 = 0
+			if input.keys[KeyID.Q].ended_down {
+				delta_z += speed
 			}
+			if input.keys[KeyID.E].ended_down {
+				delta_z -= speed
+			}
+			camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
+			renderer.camera_axes.x = camera_z_rotation * renderer.camera_axes.x
+			renderer.camera_axes.y = camera_z_rotation * renderer.camera_axes.y
+		}
+
+		if window.mouse_camera_control {
 
 			{
 				camera_y_rotation := get_rotation3(
@@ -140,26 +144,26 @@ main :: proc() {
 				renderer.camera_axes.z = camera_x_rotation * renderer.camera_axes.z
 			}
 
-			// NOTE(khvorov) Move camera input
-			if input.keys[KeyID.A].ended_down {
-				renderer.camera_pos -= speed * renderer.camera_axes.x
-			}
-			if input.keys[KeyID.D].ended_down {
-				renderer.camera_pos += speed * renderer.camera_axes.x
-			}
-			if input.keys[KeyID.W].ended_down {
-				renderer.camera_pos += speed * renderer.camera_axes.z
-			}
-			if input.keys[KeyID.S].ended_down {
-				renderer.camera_pos -= speed * renderer.camera_axes.z
-			}
-			if input.keys[KeyID.Space].ended_down {
-				renderer.camera_pos += speed * renderer.camera_axes.y
-			}
-			if input.keys[KeyID.Ctrl].ended_down {
-				renderer.camera_pos -= speed * renderer.camera_axes.y
-			}
+		}
 
+		// NOTE(khvorov) Move camera input
+		if input.keys[KeyID.A].ended_down {
+			renderer.camera_pos -= speed * renderer.camera_axes.x
+		}
+		if input.keys[KeyID.D].ended_down {
+			renderer.camera_pos += speed * renderer.camera_axes.x
+		}
+		if input.keys[KeyID.W].ended_down {
+			renderer.camera_pos += speed * renderer.camera_axes.z
+		}
+		if input.keys[KeyID.S].ended_down {
+			renderer.camera_pos -= speed * renderer.camera_axes.z
+		}
+		if input.keys[KeyID.Space].ended_down {
+			renderer.camera_pos += speed * renderer.camera_axes.y
+		}
+		if input.keys[KeyID.Ctrl].ended_down {
+			renderer.camera_pos -= speed * renderer.camera_axes.y
 		}
 
 		if was_pressed(input, .Digit1) {
@@ -181,11 +185,7 @@ main :: proc() {
 			toggle_option(&renderer, .BackfaceCull)
 		}
 
-		if was_pressed(input, .F1) {
-			toggle_camera_control(&window)
-		}
-
-		if !window.camera_control {
+		if !window.mouse_camera_control {
 
 			mu.begin(&ui)
 
@@ -232,7 +232,7 @@ main :: proc() {
 
 		begin_timed_section(.UI)
 
-		if !window.camera_control {
+		if !window.mouse_camera_control {
 
 			ui_cmd: ^mu.Command = nil
 			for mu.next_command(&ui, &ui_cmd) {

@@ -134,11 +134,11 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	}
 }
 
-toggle_camera_control :: proc(window: ^Window) {
+toggle_mouse_camera_control :: proc(window: ^Window) {
 
 	hwnd := window.platform.hwnd
 
-	if window.camera_control {
+	if window.mouse_camera_control {
 
 		clip_cursor(nil)
 		show_cursor(true)
@@ -160,7 +160,7 @@ toggle_camera_control :: proc(window: ^Window) {
 
 	}
 
-	window.camera_control = !window.camera_control
+	window.mouse_camera_control = !window.mouse_camera_control
 
 }
 
@@ -228,7 +228,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 		// NOTE(khvorov) Update mouse delta
 		case win32.WM_INPUT:
-			if window.camera_control {
+			if window.mouse_camera_control {
 				raw: win32.Raw_Input
 				size := u32(size_of(raw))
 

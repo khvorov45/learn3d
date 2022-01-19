@@ -53,9 +53,9 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	}
 }
 
-toggle_camera_control :: proc(window: ^Window) {
+toggle_mouse_camera_control :: proc(window: ^Window) {
 
-	if window.camera_control {
+	if window.mouse_camera_control {
 		sdl.SetWindowMouseGrab(window.platform.window, false)
 		sdl.SetRelativeMouseMode(false)
 	} else {
@@ -63,7 +63,7 @@ toggle_camera_control :: proc(window: ^Window) {
 		sdl.SetRelativeMouseMode(true)
 	}
 
-	window.camera_control = !window.camera_control
+	window.mouse_camera_control = !window.mouse_camera_control
 }
 
 poll_input :: proc(window: ^Window, input: ^Input) {
@@ -128,7 +128,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 			}
 
 		case .MOUSEMOTION:
-			if window.camera_control {
+			if window.mouse_camera_control {
 				input.cursor_delta = [2]f32{f32(event.motion.xrel), f32(event.motion.yrel)}
 			}
 
