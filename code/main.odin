@@ -189,7 +189,7 @@ main :: proc() {
 				row_widths := [4]i32{100, 100, 100, 100}
 				mu.layout_row(&ui, row_widths[:])
 
-				for timed_section, index in GlobalTimings.last_frame {
+				for timed_section, index in global_timings.last_frame {
 					mu.text(&ui, fmt.tprintf("{}", TimedSectionID(index)))
 					mu.text(&ui, fmt.tprintf("%.2f", timed_section.total_ms))
 					mu.text(&ui, fmt.tprintf("{}", timed_section.hit_count))

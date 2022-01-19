@@ -28,11 +28,11 @@ Timings :: struct {
 	last_frame: []TimedSection,
 }
 
-GlobalTimings: Timings
+global_timings: Timings
 
 init_global_timings :: proc() {
-	GlobalTimings.this_frame = GlobalTimings.storage[:len(TimedSectionID)]
-	GlobalTimings.last_frame = GlobalTimings.storage[len(TimedSectionID):]
+	global_timings.this_frame = global_timings.storage[:len(TimedSectionID)]
+	global_timings.last_frame = global_timings.storage[len(TimedSectionID):]
 }
 
 begin_timed_frame :: proc() {
@@ -42,7 +42,7 @@ begin_timed_frame :: proc() {
 end_timed_frame :: proc() {
 	end_timed_section(.Frame)
 
-	using GlobalTimings
+	using global_timings
 	this_frame, last_frame = last_frame, this_frame
 	for timed_section in &this_frame {
 		timed_section = TimedSection{time.Tick{0}, 0, 0}
@@ -50,12 +50,12 @@ end_timed_frame :: proc() {
 }
 
 begin_timed_section :: proc(id: TimedSectionID) {
-	section := &GlobalTimings.this_frame[id]
+	section := &global_timings.this_frame[id]
 	section.last_start = time.tick_now()
 }
 
 end_timed_section :: proc(id: TimedSectionID, count := 1) {
-	section := &GlobalTimings.this_frame[id]
+	section := &global_timings.this_frame[id]
 	section.hit_count += count
 	section.total_ms += time.duration_milliseconds(time.tick_since(section.last_start))
 }
