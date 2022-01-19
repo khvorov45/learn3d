@@ -142,7 +142,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		cast(^i32)&window.dim.y,
 	)
 
-	// NOTE(sen) Update mouse position
+	// NOTE(khvorov) Update mouse position
 	{
 		cursor_x, cursor_y: i32
 		sdl.GetMouseState(&cursor_x, &cursor_y)

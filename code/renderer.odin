@@ -55,7 +55,7 @@ Mesh :: struct {
 }
 
 Triangle :: struct {
-	indices: [3]int, // TODO(sen) What if I make these be vertices?
+	indices: [3]int, // TODO(khvorov) What if I make these be vertices?
 	color:   [4]f32,
 	texture: [3][2]f32,
 }
@@ -168,20 +168,20 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 	renderer.vertex_camera_space_count = 0
 
-	// NOTE(sen) Transfrom from model to camera
+	// NOTE(khvorov) Transfrom from model to camera
 	for vertex in mesh.vertices {
 		vertex_camera := model_to_camera_transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
 		renderer.vertices_camera_space[renderer.vertex_camera_space_count] = vertex_camera
 		renderer.vertex_camera_space_count += 1
 	}
 
-	// NOTE(sen) Draw triangles
+	// NOTE(khvorov) Draw triangles
 
 	light_ray := linalg.normalize([3]f32{0, 0, 1})
 
 	for mesh_triangle in mesh.triangles {
 
-		// NOTE(sen) Back-face culling
+		// NOTE(khvorov) Back-face culling
 		mesh_triangle_vertices: [3][4]f32
 		for fi, vi in mesh_triangle.indices {
 			vert := renderer.vertices_camera_space[fi]
@@ -198,7 +198,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 
 		if camera_normal_dot > 0 || !(.BackfaceCull in renderer.options) {
 
-			// NOTE(sen) Clipping
+			// NOTE(khvorov) Clipping
 			triangle_clip_space: [3][4]f32
 			for vertex, index in mesh_triangle_vertices {
 				triangle_clip_space[index] = renderer.projection * vertex
@@ -320,7 +320,7 @@ draw_triangle_px :: proc(
 
 	color := color
 
-	// NOTE(sen) Sort (y+ down)
+	// NOTE(khvorov) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
 	tex_top, tex_mid, tex_bottom := tex_coords[0], tex_coords[1], tex_coords[2]
 	w_top, w_mid, w_bottom := og_w[0], og_w[1], og_w[2]
@@ -340,14 +340,14 @@ draw_triangle_px :: proc(
 		w_top, w_mid = w_mid, w_top
 	}
 
-	// NOTE(sen) Midline
+	// NOTE(khvorov) Midline
 	midline_x := mid.x
 	if top.y != bottom.y {
 		midline_x = (mid.y - top.y) / (bottom.y - top.y) * (bottom.x - top.x) + top.x
 	}
 	midline := [2]f32{midline_x, mid.y}
 
-	// NOTE(sen) Triangle vectors
+	// NOTE(khvorov) Triangle vectors
 	ab := mid - top
 	ac := bottom - top
 	bc := bottom - mid
@@ -362,7 +362,7 @@ draw_triangle_px :: proc(
 
 	px_count := renderer.pixels_dim.y * renderer.pixels_dim.x
 
-	// NOTE(sen) Flat bottom
+	// NOTE(khvorov) Flat bottom
 	{
 		rise := mid.y - top.y
 		if rise != 0 {
@@ -429,7 +429,7 @@ draw_triangle_px :: proc(
 		}
 	}
 
-	// NOTE(sen) Flat top
+	// NOTE(khvorov) Flat top
 	{
 		rise := bottom.y - mid.y
 		if rise != 0 {
@@ -692,7 +692,7 @@ clip_to_px_buffer_line :: proc(line: LineSegment2d, px_dim: [2]int) -> LineSegme
 
 	result: LineSegment2d
 
-	// NOTE(sen) Line parallel to clipping window
+	// NOTE(khvorov) Line parallel to clipping window
 	if (p1 == 0 && q1 < 0) || (p2 == 0 && q2 < 0) || (p3 == 0 && q3 < 0) || (p4 == 0 && q4 <
 	   0) {
 		return result
@@ -735,7 +735,7 @@ clip_to_px_buffer_line :: proc(line: LineSegment2d, px_dim: [2]int) -> LineSegme
 		rn2 = min(rn2, pos)
 	}
 
-	// NOTE(sen) Line outside clipping window
+	// NOTE(khvorov) Line outside clipping window
 	if rn1 > rn2 {
 		return result
 	}

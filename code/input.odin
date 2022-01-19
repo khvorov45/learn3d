@@ -2,7 +2,7 @@ package learn3d
 
 Input :: struct {
 	keys:         [KeyID]Key,
-	cursor_pos:   [2]f32, // NOTE(sen) Bottom-up
+	cursor_pos:   [2]f32, // NOTE(khvorov) Bottom-up
 	cursor_delta: [2]f32,
 }
 

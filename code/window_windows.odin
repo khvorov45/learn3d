@@ -62,7 +62,7 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 
 	win32.set_window_long_ptr_a(hwnd, win32.GWLP_USERDATA, win32.Long_Ptr(uintptr(window)))
 
-	// NOTE(sen) Resize so that dim corresponds to the client area
+	// NOTE(khvorov) Resize so that dim corresponds to the client area
 	decorations_dim: [2]int
 	{
 		client_rect: win32.Rect
@@ -103,7 +103,7 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	pixel_info: win32.Bitmap_Info
 	pixel_info.header.size = size_of(pixel_info.header)
 	pixel_info.header.width = i32(width)
-	pixel_info.header.height = -i32(height) // NOTE(sen) Negative means top-down
+	pixel_info.header.height = -i32(height) // NOTE(khvorov) Negative means top-down
 	pixel_info.header.planes = 1
 	pixel_info.header.bit_count = 32
 	pixel_info.header.compression = win32.BI_RGB
@@ -111,7 +111,7 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	previous_placement: win32.Window_Placement
 	previous_placement.length = size_of(previous_placement)
 
-	// NOTE(sen) Register raw input mouse
+	// NOTE(khvorov) Register raw input mouse
 	{
 		HID_USAGE_PAGE_GENERIC :: 0x01
 		HID_USAGE_GENERIC_MOUSE :: 0x02
@@ -226,7 +226,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 				record_key(input, .F1, ended_down)
 			}
 
-		// NOTE(sen) Update mouse delta
+		// NOTE(khvorov) Update mouse delta
 		case win32.WM_INPUT:
 			if window.camera_control {
 				raw: win32.Raw_Input
@@ -253,7 +253,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 	}
 
-	// NOTE(sen) Update dim
+	// NOTE(khvorov) Update dim
 	{
 		rect: win32.Rect
 		win32.get_client_rect(window.platform.hwnd, &rect)
@@ -261,7 +261,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 		window.dim.x = int(rect.right - rect.left)
 	}
 
-	// NOTE(sen) Update mouse position
+	// NOTE(khvorov) Update mouse position
 	{
 		cursor_screen: win32.Point
 		win32.get_cursor_pos(&cursor_screen)
@@ -331,7 +331,7 @@ window_proc :: proc "std" (
 
 toggle_fullscreen :: proc(window: ^Window) {
 
-	// NOTE(sen) Taken from https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+	// NOTE(khvorov) Taken from https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
 
 	style := win32.get_window_long_ptr_a(window.platform.hwnd, win32.GWL_STYLE)
 

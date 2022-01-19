@@ -105,7 +105,7 @@ main :: proc() {
 
 		if window.camera_control {
 
-			// NOTE(sen) Rotate camera input
+			// NOTE(khvorov) Rotate camera input
 			{
 				delta_z: f32 = 0
 				if input.keys[KeyID.Q].ended_down {
@@ -137,7 +137,7 @@ main :: proc() {
 				renderer.camera_axes.z = camera_x_rotation * renderer.camera_axes.z
 			}
 
-			// NOTE(sen) Move camera input
+			// NOTE(khvorov) Move camera input
 			if input.keys[KeyID.A].ended_down {
 				renderer.camera_pos -= speed * renderer.camera_axes.x
 			}
