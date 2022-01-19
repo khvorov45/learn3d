@@ -12,6 +12,9 @@ import bf "bitmap_font"
 
 main :: proc() {
 
+	// TODO(khvorov) More UI - show controls, make them clickable probably
+	// TODO(khvorov) Replace art and check it in
+
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
 
