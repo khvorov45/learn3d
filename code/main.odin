@@ -28,7 +28,12 @@ main :: proc() {
 		10,
 	)
 
-	read_mesh :: proc(renderer: ^Renderer, name: string, translation: [3]f32) -> (
+	read_mesh :: proc(
+		renderer: ^Renderer,
+		name: string,
+		translation: [3]f32,
+		options: bit_set[ObjOption] = nil,
+	) -> (
 		Mesh,
 		Texture,
 	) {
@@ -39,6 +44,7 @@ main :: proc() {
 			read_file(fmt.tprintf("assets/{}.obj", name)),
 			renderer.vertices[renderer.vertex_count:],
 			renderer.triangles[renderer.triangle_count:],
+			options,
 		)
 
 		renderer.vertex_count += len(mesh.vertices)
@@ -51,7 +57,12 @@ main :: proc() {
 
 	mesh_f22, texture_f22 := read_mesh(&renderer, "f22", [3]f32{3, 0, 3.5})
 	mesh_f117, texture_f117 := read_mesh(&renderer, "f117", [3]f32{-3, 0, 3.5})
-	mesh_cube, texture_cube := read_mesh(&renderer, "cube", [3]f32{0, 0, 3.5})
+	mesh_cube, texture_cube := read_mesh(
+		&renderer,
+		"box",
+		[3]f32{0, 0, 3.5},
+		{.ConvertToLeftHanded, .SwapZAndY},
+	)
 
 	target_framerate := 30
 	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
