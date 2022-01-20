@@ -2,6 +2,7 @@ package learn3d
 
 import "core:time"
 import "core:fmt"
+import "core:math"
 
 import mu "vendor:microui"
 
@@ -15,6 +16,7 @@ main :: proc() {
 	// TODO(khvorov) Toggle textures
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Fiddle with movement sensitivity
+	// TODO(khvorov) Better shading with normal maps
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
@@ -24,7 +26,7 @@ main :: proc() {
 		window.dim.y,
 		65536,
 		65536,
-		to_radians(90),
+		math.RAD_PER_DEG * 90,
 		0.1,
 		10,
 	)

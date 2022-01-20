@@ -117,7 +117,7 @@ create_renderer :: proc(
 		fov_horizontal = fov_horizontal,
 		near = near,
 		far = far,
-		projection = perspective(fov_horizontal, height_over_width, near, far),
+		projection = get_perspective4(fov_horizontal, height_over_width, near, far),
 	}
 	clear(&renderer)
 	return renderer
@@ -145,21 +145,17 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
 	begin_timed_section(.DrawMesh)
 	defer end_timed_section(.DrawMesh)
 
-	scale4 := scale(mesh.scale)
+	scale4 := get_scale4(mesh.scale)
 
-	rotation4 := rotation([3]f32{1, 0, 0}, mesh.rotation.x)
-	rotation4 *= rotation([3]f32{0, 1, 0}, mesh.rotation.y)
-	rotation4 *= rotation([3]f32{0, 0, 1}, mesh.rotation.z)
+	rotation4 := get_rotation4([3]f32{1, 0, 0}, mesh.rotation.x)
+	rotation4 *= get_rotation4([3]f32{0, 1, 0}, mesh.rotation.y)
+	rotation4 *= get_rotation4([3]f32{0, 0, 1}, mesh.rotation.z)
 
-	translation4 := translation(mesh.translation)
+	translation4 := get_translation4(mesh.translation)
 
 	world_transform := translation4 * rotation4 * scale4
 
-	camera_transform := look_direction(
-		renderer.camera_pos,
-		renderer.camera_axes.z,
-		renderer.camera_axes.y,
-	)
+	camera_transform := get_look_axes4(renderer.camera_pos, renderer.camera_axes)
 
 	model_to_camera_transform := camera_transform * world_transform
 
@@ -767,16 +763,7 @@ color_to_4f32 :: proc(argb: u32) -> [4]f32 {
 	return color
 }
 
-identity :: proc() -> matrix[4, 4]f32 {
-	result: matrix[4, 4]f32
-	result[0, 0] = 1
-	result[1, 1] = 1
-	result[2, 2] = 1
-	result[3, 3] = 1
-	return result
-}
-
-scale :: proc(axes: [3]f32) -> matrix[4, 4]f32 {
+get_scale4 :: proc(axes: [3]f32) -> matrix[4, 4]f32 {
 	result: matrix[4, 4]f32
 	result[0, 0] = axes.x
 	result[1, 1] = axes.y
@@ -785,15 +772,22 @@ scale :: proc(axes: [3]f32) -> matrix[4, 4]f32 {
 	return result
 }
 
-translation :: proc(axes: [3]f32) -> matrix[4, 4]f32 {
-	result := identity()
+get_translation4 :: proc(axes: [3]f32) -> matrix[4, 4]f32 {
+
+	result: matrix[4, 4]f32
+
+	result[0, 0] = 1
+	result[1, 1] = 1
+	result[2, 2] = 1
+	result[3, 3] = 1
+
 	result[0, 3] = axes.x
 	result[1, 3] = axes.y
 	result[2, 3] = axes.z
 	return result
 }
 
-rotation :: proc(axis: [3]f32, angle: f32) -> matrix[4, 4]f32 {
+get_rotation4 :: proc(axis: [3]f32, angle: f32) -> matrix[4, 4]f32 {
 	cos := math.cos(angle)
 	sin := math.sin(angle)
 	icos := 1 - cos
@@ -845,7 +839,7 @@ get_rotation3 :: proc(axis: [3]f32, angle: f32) -> matrix[3, 3]f32 {
 // x, y -> -w, w
 // z -> 0, 1
 // Only x and y need perspective divide
-perspective :: proc(
+get_perspective4 :: proc(
 	fov_horizontal,
 	height_over_width,
 	z_near,
@@ -871,45 +865,17 @@ perspective :: proc(
 	return result
 }
 
-look_at :: proc(eye, target, up: [3]f32) -> matrix[4, 4]f32 {
-
-	eye_z := linalg.normalize(target - eye)
-	eye_x := linalg.normalize(linalg.cross(up, eye_z))
-	eye_y := linalg.cross(eye_z, eye_x)
+// Assumes the axes are normalized
+get_look_axes4 :: proc(eye: [3]f32, axes: [3][3]f32) -> matrix[4, 4]f32 {
 
 	//odinfmt: disable
 	view := matrix[4, 4]f32{
-		eye_x.x, eye_x.y, eye_x.z, -linalg.dot(eye_x, eye),
-		eye_y.x, eye_y.y, eye_y.z, -linalg.dot(eye_y, eye),
-		eye_z.x, eye_z.y, eye_z.z, -linalg.dot(eye_z, eye),
+		axes.x.x, axes.x.y, axes.x.z, -linalg.dot(axes.x, eye),
+		axes.y.x, axes.y.y, axes.y.z, -linalg.dot(axes.y, eye),
+		axes.z.x, axes.z.y, axes.z.z, -linalg.dot(axes.z, eye),
 		0, 0, 0, 1,
 	}
 	//odinfmt: enable
 
 	return view
-}
-
-look_direction :: proc(eye, forward, up: [3]f32) -> matrix[4, 4]f32 {
-	eye_z := linalg.normalize(forward)
-	eye_x := linalg.normalize(linalg.cross(up, eye_z))
-	eye_y := linalg.cross(eye_z, eye_x)
-
-	//odinfmt: disable
-	view := matrix[4, 4]f32{
-		eye_x.x, eye_x.y, eye_x.z, -linalg.dot(eye_x, eye),
-		eye_y.x, eye_y.y, eye_y.z, -linalg.dot(eye_y, eye),
-		eye_z.x, eye_z.y, eye_z.z, -linalg.dot(eye_z, eye),
-		0, 0, 0, 1,
-	}
-	//odinfmt: enable
-
-	return view
-}
-
-to_radians :: proc(degrees: f32) -> f32 {
-	return math.RAD_PER_DEG * degrees
-}
-
-to_degrees :: proc(radians: f32) -> f32 {
-	return math.DEG_PER_RAD * radians
 }
