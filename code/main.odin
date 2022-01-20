@@ -14,6 +14,7 @@ main :: proc() {
 	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Implement Alt+F4
 	// TODO(khvorov) Toggle textures
+	// TODO(khvorov) Draw some reference lines
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
@@ -27,6 +28,9 @@ main :: proc() {
 		0.1,
 		10,
 	)
+
+	// TODO(khvorov) Assertion failure with cube in center at
+	// renderer.camera_pos = [3]f32{0.00000000, 0.499999970, 0.499999970}
 
 	read_mesh :: proc(
 		renderer: ^Renderer,
@@ -55,8 +59,20 @@ main :: proc() {
 		return mesh, texture
 	}
 
-	mesh_f22, texture_f22 := read_mesh(&renderer, "f22", [3]f32{3, 0, 3.5})
-	mesh_f117, texture_f117 := read_mesh(&renderer, "f117", [3]f32{-3, 0, 3.5})
+	mesh_milk, texture_milk := read_mesh(
+		&renderer,
+		"milk",
+		[3]f32{3, 0, 3.5},
+		{.ConvertToLeftHanded},
+	)
+	mesh_milk.scale = 0.1
+	mesh_wheel, texture_wheel := read_mesh(
+		&renderer,
+		"wheel",
+		[3]f32{-3, 0, 3.5},
+		{.ConvertToLeftHanded},
+	)
+	mesh_wheel.scale = 0.01
 	mesh_cube, texture_cube := read_mesh(
 		&renderer,
 		"box",
@@ -235,8 +251,8 @@ main :: proc() {
 
 		end_timed_section(.Clear)
 
-		draw_mesh(&renderer, mesh_f22, texture_f22)
-		draw_mesh(&renderer, mesh_f117, texture_f117)
+		draw_mesh(&renderer, mesh_milk, texture_milk)
+		draw_mesh(&renderer, mesh_wheel, texture_wheel)
 		draw_mesh(&renderer, mesh_cube, texture_cube)
 
 		begin_timed_section(.UI)
