@@ -10,7 +10,6 @@ import bf "bitmap_font"
 main :: proc() {
 
 	// TODO(khvorov) More UI - show controls, make them clickable probably
-	// TODO(khvorov) Replace art and check it in
 	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Implement Alt+F4
 	// TODO(khvorov) Toggle textures
