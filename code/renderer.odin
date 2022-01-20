@@ -140,7 +140,7 @@ clear :: proc(renderer: ^Renderer) {
 	}
 }
 
-draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Texture) {
+draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 
 	begin_timed_section(.DrawMesh)
 	defer end_timed_section(.DrawMesh)
@@ -305,13 +305,11 @@ draw_triangle_px :: proc(
 	color: [4]f32,
 	tex_coords: [3][2]f32,
 	og_w: [3]f32,
-	texture: Texture,
+	texture: Maybe(Texture),
 ) {
 
 	begin_timed_section(.DrawTriangle)
 	defer end_timed_section(.DrawTriangle)
-
-	color := color
 
 	// NOTE(khvorov) Sort (y+ down)
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
@@ -345,13 +343,18 @@ draw_triangle_px :: proc(
 	ac := bottom - top
 	bc := bottom - mid
 	one_over_twice_abc_area := 1 / linalg.cross(ab, ac)
-	tex_dim_f32 := [2]f32{f32(texture.dim.x), f32(texture.dim.y)}
 	one_over_w_top := 1 / w_top
 	one_over_w_mid := 1 / w_mid
 	one_over_w_bottom := 1 / w_bottom
+
 	tex_top *= one_over_w_top
 	tex_mid *= one_over_w_mid
 	tex_bottom *= one_over_w_bottom
+
+	tex_dim_f32: [2]f32
+	if tex, ok := texture.(Texture); ok {
+		tex_dim_f32 = [2]f32{f32(tex.dim.x), f32(tex.dim.y)}
+	}
 
 	// NOTE(khvorov) Flat bottom
 	{
@@ -396,20 +399,23 @@ draw_triangle_px :: proc(
 
 						renderer.z_buffer[px_index] = this_w
 
-						tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
-						tex_coord01 *= this_w
+						result_color := color
+						if tex, ok := texture.(Texture); ok {
+							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+							tex_coord01 *= this_w
 
-						tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-						tex_coord_y := int(math.round(tex_coord_px.y))
-						tex_coord_x := int(math.round(tex_coord_px.x))
-						texel_index := tex_coord_y * texture.pitch + tex_coord_x
+							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+							tex_coord_y := int(math.round(tex_coord_px.y))
+							tex_coord_x := int(math.round(tex_coord_px.x))
+							texel_index := tex_coord_y * tex.pitch + tex_coord_x
 
-						tex_color32 := texture.memory[texel_index]
-						tex_color := color_to_4f32(tex_color32)
-						tex_shaded := tex_color * color
+							tex_color32 := tex.memory[texel_index]
+							tex_color := color_to_4f32(tex_color32)
+							result_color = color * tex_color
+						}
 
-						result_color := color_to_u32argb(tex_shaded)
-						renderer.pixels[px_index] = result_color
+						result_color32 := color_to_u32argb(result_color)
+						renderer.pixels[px_index] = result_color32
 
 					}
 
@@ -468,20 +474,23 @@ draw_triangle_px :: proc(
 
 						renderer.z_buffer[px_index] = this_w
 
-						tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
-						tex_coord01 *= this_w
+						result_color := color
+						if tex, ok := texture.(Texture); ok {
+							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
+							tex_coord01 *= this_w
 
-						tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-						tex_coord_y := int(math.round(tex_coord_px.y))
-						tex_coord_x := int(math.round(tex_coord_px.x))
-						texel_index := tex_coord_y * texture.pitch + tex_coord_x
+							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
+							tex_coord_y := int(math.round(tex_coord_px.y))
+							tex_coord_x := int(math.round(tex_coord_px.x))
+							texel_index := tex_coord_y * tex.pitch + tex_coord_x
 
-						tex_color32 := texture.memory[texel_index]
-						tex_color := color_to_4f32(tex_color32)
-						tex_shaded := tex_color * color
+							tex_color32 := tex.memory[texel_index]
+							tex_color := color_to_4f32(tex_color32)
+							result_color = color * tex_color
+						}
 
-						result_color := color_to_u32argb(tex_shaded)
-						renderer.pixels[px_index] = result_color
+						result_color32 := color_to_u32argb(result_color)
+						renderer.pixels[px_index] = result_color32
 
 					}
 

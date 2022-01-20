@@ -3,6 +3,7 @@ package learn3d
 import "core:time"
 import "core:fmt"
 import "core:math"
+import "core:os"
 
 import mu "vendor:microui"
 
@@ -35,16 +36,24 @@ main :: proc() {
 		renderer: ^Renderer,
 		name: string,
 		translation: [3]f32,
+		scale: f32 = 1,
 		options: bit_set[ObjOption] = nil,
 	) -> (
 		Mesh,
-		Texture,
+		Maybe(Texture),
 	) {
+
 		mesh: Mesh
-		mesh.scale = 1
+		mesh.scale = scale
 		mesh.translation = translation
+
+		mesh_contents, mesh_contents_ok := os.read_entire_file(
+			fmt.tprintf("assets/{}.obj", name),
+		)
+		assert(mesh_contents_ok)
+
 		mesh.vertices, mesh.triangles = read_obj(
-			read_file(fmt.tprintf("assets/{}.obj", name)),
+			mesh_contents,
 			renderer.vertices[renderer.vertex_count:],
 			renderer.triangles[renderer.triangle_count:],
 			options,
@@ -53,7 +62,10 @@ main :: proc() {
 		renderer.vertex_count += len(mesh.vertices)
 		renderer.triangle_count += len(mesh.triangles)
 
-		texture := read_image(read_file(fmt.tprintf("assets/{}.png", name)))
+		texture: Maybe(Texture)
+		if texture_contents, ok := os.read_entire_file(fmt.tprintf("assets/{}.png", name)); ok {
+			texture = read_image(texture_contents)
+		}
 
 		return mesh, texture
 	}
@@ -62,20 +74,31 @@ main :: proc() {
 		&renderer,
 		"milk",
 		[3]f32{3, 0, 3.5},
+		0.1,
 		{.ConvertToLeftHanded},
 	)
-	mesh_milk.scale = 0.1
+
 	mesh_wheel, texture_wheel := read_mesh(
 		&renderer,
 		"wheel",
 		[3]f32{-3, 0, 3.5},
+		0.01,
 		{.ConvertToLeftHanded},
 	)
-	mesh_wheel.scale = 0.01
-	mesh_cube, texture_cube := read_mesh(
+
+	mesh_box, texture_box := read_mesh(
 		&renderer,
 		"box",
 		[3]f32{0, 0, 3.5},
+		1,
+		{.ConvertToLeftHanded, .SwapZAndY},
+	)
+
+	mesh_sphere, texture_sphere := read_mesh(
+		&renderer,
+		"sphere",
+		[3]f32{0, -1.5, 3.5},
+		1,
 		{.ConvertToLeftHanded, .SwapZAndY},
 	)
 
@@ -252,7 +275,8 @@ main :: proc() {
 
 		draw_mesh(&renderer, mesh_milk, texture_milk)
 		draw_mesh(&renderer, mesh_wheel, texture_wheel)
-		draw_mesh(&renderer, mesh_cube, texture_cube)
+		draw_mesh(&renderer, mesh_box, texture_box)
+		draw_mesh(&renderer, mesh_sphere, texture_sphere)
 
 		begin_timed_section(.UI)
 
