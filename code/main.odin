@@ -14,7 +14,6 @@ main :: proc() {
 	// TODO(khvorov) More UI - show controls, make them clickable probably
 	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Implement Alt+F4
-	// TODO(khvorov) Toggle textures
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Fiddle with movement sensitivity
 	// TODO(khvorov) Better shading with normal maps
@@ -214,21 +213,24 @@ main :: proc() {
 		}
 
 		if was_pressed(input, .Digit1) {
-			toggle_option(&renderer, .FilledTriangles)
+			toggle_option(&renderer, .BaseColor)
 		}
 		if was_pressed(input, .Digit2) {
-			toggle_option(&renderer, .Wireframe)
+			toggle_option(&renderer, .TextureColor)
 		}
 		if was_pressed(input, .Digit3) {
-			toggle_option(&renderer, .Vertices)
+			toggle_option(&renderer, .Wireframe)
 		}
 		if was_pressed(input, .Digit4) {
-			toggle_option(&renderer, .Normals)
+			toggle_option(&renderer, .Vertices)
 		}
 		if was_pressed(input, .Digit5) {
-			toggle_option(&renderer, .Midpoints)
+			toggle_option(&renderer, .Normals)
 		}
 		if was_pressed(input, .Digit6) {
+			toggle_option(&renderer, .Midpoints)
+		}
+		if was_pressed(input, .Digit7) {
 			toggle_option(&renderer, .BackfaceCull)
 		}
 

@@ -35,7 +35,8 @@ Renderer :: struct {
 }
 
 DisplayOption :: enum {
-	FilledTriangles,
+	BaseColor,
+	TextureColor,
 	Wireframe,
 	Vertices,
 	Normals,
@@ -108,7 +109,7 @@ create_renderer :: proc(
 	renderer := Renderer {
 		pixels = make([]u32, width * height),
 		pixels_dim = [2]int{width, height},
-		options = {.BackfaceCull, .FilledTriangles},
+		options = {.BackfaceCull, .BaseColor, .TextureColor},
 		z_buffer = make([]f32, width * height),
 		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
 		vertices = make([][3]f32, max_vertices),
@@ -232,10 +233,17 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 					og_w[index] = vertex.w
 				}
 
-				if .FilledTriangles in renderer.options {
-					shaded_color := mesh_triangle.color
+				if renderer.options & {.BaseColor, .TextureColor} != nil {
+					shaded_color := [4]f32{1, 1, 1, 1}
+					if .BaseColor in renderer.options {
+						shaded_color = mesh_triangle.color
+					}
 					shaded_color.rgb *= light_normal_dot
-					draw_triangle_px(renderer, vertices_px, shaded_color, tex_coords, og_w, texture)
+					tex := texture
+					if !(.TextureColor in renderer.options) {
+						tex = nil
+					}
+					draw_triangle_px(renderer, vertices_px, shaded_color, tex_coords, og_w, tex)
 				}
 
 				if .Wireframe in renderer.options {
