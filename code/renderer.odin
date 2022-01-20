@@ -588,9 +588,10 @@ clip_in_clip_space :: proc(polygon: Polygon, plane: ClipPlane) -> Polygon {
 
 	result: Polygon
 
-	if polygon.vertex_count > 0 {
-
-		assert(polygon.vertex_count >= 3)
+	// NOTE(khvorov) A polygon with one (or two) vertices may appear when only
+	// one (or two) vertices are right on a clip plane while all others are
+	// outside
+	if polygon.vertex_count >= 3 {
 
 		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
 		prev_tex := polygon.texture[polygon.vertex_count - 1]

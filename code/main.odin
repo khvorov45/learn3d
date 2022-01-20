@@ -14,6 +14,7 @@ main :: proc() {
 	// TODO(khvorov) Implement Alt+F4
 	// TODO(khvorov) Toggle textures
 	// TODO(khvorov) Draw some reference lines
+	// TODO(khvorov) Fiddle with movement sensitivity
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
@@ -27,9 +28,6 @@ main :: proc() {
 		0.1,
 		10,
 	)
-
-	// TODO(khvorov) Assertion failure with cube in center at
-	// renderer.camera_pos = [3]f32{0.00000000, 0.499999970, 0.499999970}
 
 	read_mesh :: proc(
 		renderer: ^Renderer,
