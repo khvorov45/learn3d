@@ -1,5 +1,4 @@
 //+build !windows
-
 package learn3d
 
 import sdl "vendor:sdl2"
