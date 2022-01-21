@@ -25,7 +25,9 @@ main :: proc() {
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
 
-	renderer := create_renderer(
+	renderer: Renderer
+	init_renderer(
+		&renderer,
 		window.dim.x,
 		window.dim.y,
 		65536,
@@ -35,7 +37,7 @@ main :: proc() {
 		10,
 	)
 
-	read_mesh :: proc(
+	read_mesh_and_texture :: proc(
 		renderer: ^Renderer,
 		name: string,
 		translation: [3]f32,
@@ -75,7 +77,7 @@ main :: proc() {
 		return mesh, texture
 	}
 
-	mesh_milk, texture_milk := read_mesh(
+	mesh_milk, texture_milk := read_mesh_and_texture(
 		&renderer,
 		"milk",
 		[3]f32{3, 0, 3.5},
@@ -83,7 +85,7 @@ main :: proc() {
 		{.ConvertToLeftHanded},
 	)
 
-	mesh_wheel, texture_wheel := read_mesh(
+	mesh_wheel, texture_wheel := read_mesh_and_texture(
 		&renderer,
 		"wheel",
 		[3]f32{-3, 0, 3.5},
@@ -91,7 +93,7 @@ main :: proc() {
 		{.ConvertToLeftHanded},
 	)
 
-	mesh_box, texture_box := read_mesh(
+	mesh_box, texture_box := read_mesh_and_texture(
 		&renderer,
 		"box",
 		[3]f32{0, 0, 3.5},
@@ -99,7 +101,7 @@ main :: proc() {
 		{.ConvertToLeftHanded, .SwapZAndY},
 	)
 
-	mesh_sphere, texture_sphere := read_mesh(
+	mesh_sphere, texture_sphere := read_mesh_and_texture(
 		&renderer,
 		"sphere",
 		[3]f32{0, -1.5, 3.5},
@@ -277,7 +279,7 @@ main :: proc() {
 
 		begin_timed_section(.Clear)
 
-		clear(&renderer)
+		clear_buffers(&renderer)
 
 		end_timed_section(.Clear)
 

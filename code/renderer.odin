@@ -1,5 +1,3 @@
-package learn3d
-
 /* Renderer
 
 All angles are in radians
@@ -10,6 +8,8 @@ Coordinates in pixels: x+ right; y+ down
 draw_*_px functions draw directly on the pixel buffer and do not perform
 clipping or bounds-checking
 */
+
+package learn3d
 
 import "core:math"
 import "core:math/linalg"
@@ -100,7 +100,8 @@ LineSegment2d :: struct {
 	end:   [2]f32,
 }
 
-create_renderer :: proc(
+init_renderer :: proc(
+	renderer: ^Renderer,
 	width,
 	height,
 	max_vertices,
@@ -108,11 +109,11 @@ create_renderer :: proc(
 	fov_horizontal,
 	near,
 	far: f32,
-) -> Renderer {
+) {
 
 	height_over_width := f32(height) / f32(width)
 
-	renderer := Renderer {
+	renderer^ = Renderer {
 		pixels = make([]u32, width * height),
 		pixels_dim = [2]int{width, height},
 		options = {.BackfaceCull, .BaseColor, .TextureColor},
@@ -128,8 +129,8 @@ create_renderer :: proc(
 		far = far,
 		projection = get_perspective4(fov_horizontal, height_over_width, near, far),
 	}
-	clear(&renderer)
-	return renderer
+
+	clear_buffers(renderer)
 }
 
 toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
@@ -140,7 +141,7 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 	}
 }
 
-clear :: proc(renderer: ^Renderer) {
+clear_buffers :: proc(renderer: ^Renderer) {
 	for pixel in &renderer.pixels {
 		pixel = 0
 	}
