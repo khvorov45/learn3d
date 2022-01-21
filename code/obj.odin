@@ -146,9 +146,7 @@ read_obj :: proc(
 
 	if .SwapZAndY in options {
 		for vertex in &result_vertices {
-			temp := vertex.z
-			vertex.z = vertex.y
-			vertex.y = -temp
+			vertex.y, vertex.z = -vertex.z, vertex.y
 		}
 	}
 
