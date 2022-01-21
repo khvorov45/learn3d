@@ -3,17 +3,11 @@ package learn3d
 import "core:strings"
 import "core:strconv"
 
-ObjOption :: enum {
-	ConvertToLeftHanded,
-	SwapZAndY,
-}
-
 read_obj :: proc(
 	file_data: []u8,
 	vertices: [][3]f32,
 	normals: [][3]f32,
 	faces: []Triangle,
-	options: bit_set[ObjOption] = nil,
 ) -> (
 	[][3]f32,
 	[][3]f32,
@@ -148,35 +142,6 @@ read_obj :: proc(
 	result_vertices := vertices[:vertex_count]
 	result_normals := normals[:normal_count]
 	result_faces := faces[:triangle_count]
-
-	if .ConvertToLeftHanded in options {
-
-		for vertex in &result_vertices {
-			vertex.z *= -1
-		}
-
-		for normal in &result_normals {
-			normal.z *= -1
-		}
-
-		for face in &result_faces {
-			ind := &face.indices
-			tex := &face.texture
-			norm := &face.normal_indices
-			ind[1], ind[2] = ind[2], ind[1]
-			tex[1], tex[2] = tex[2], tex[1]
-			norm[1], norm[2] = norm[2], norm[1]
-		}
-	}
-
-	if .SwapZAndY in options {
-		for vertex in &result_vertices {
-			vertex.y, vertex.z = -vertex.z, vertex.y
-		}
-		for normal in &result_normals {
-			normal.y, normal.z = -normal.z, normal.y
-		}
-	}
 
 	return result_vertices, result_normals, result_faces
 
