@@ -24,6 +24,10 @@ Renderer :: struct {
 	vertex_count:              int,
 	vertices_camera_space:     [][4]f32,
 	vertex_camera_space_count: int,
+	normals:                   [][3]f32,
+	normal_count:              int,
+	normals_camera_space:      [][3]f32,
+	normal_camera_space_count: int,
 	triangles:                 []Triangle,
 	triangle_count:            int,
 	z_buffer:                  []f32,
@@ -46,6 +50,7 @@ DisplayOption :: enum {
 
 Mesh :: struct {
 	vertices:    [][3]f32,
+	normals:     [][3]f32,
 	triangles:   []Triangle,
 	rotation:    [3]f32,
 	scale:       [3]f32,
@@ -53,9 +58,10 @@ Mesh :: struct {
 }
 
 Triangle :: struct {
-	indices: [3]int,
-	color:   [4]f32,
-	texture: [3][2]f32,
+	indices:        [3]int,
+	normal_indices: [3]int,
+	color:          [4]f32,
+	texture:        [3][2]f32,
 }
 
 Polygon :: struct {
@@ -113,7 +119,9 @@ create_renderer :: proc(
 		z_buffer = make([]f32, width * height),
 		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
 		vertices = make([][3]f32, max_vertices),
+		normals = make([][3]f32, max_vertices),
 		vertices_camera_space = make([][4]f32, max_vertices),
+		normals_camera_space = make([][3]f32, max_vertices),
 		triangles = make([]Triangle, max_triangles),
 		fov_horizontal = fov_horizontal,
 		near = near,
@@ -148,25 +156,35 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 
 	scale4 := get_scale4(mesh.scale)
 
-	rotation4 := get_rotation4([3]f32{1, 0, 0}, mesh.rotation.x)
-	rotation4 *= get_rotation4([3]f32{0, 1, 0}, mesh.rotation.y)
-	rotation4 *= get_rotation4([3]f32{0, 0, 1}, mesh.rotation.z)
+	rotation3 := get_rotation3([3]f32{1, 0, 0}, mesh.rotation.x)
+	rotation3 *= get_rotation3([3]f32{0, 1, 0}, mesh.rotation.y)
+	rotation3 *= get_rotation3([3]f32{0, 0, 1}, mesh.rotation.z)
+	rotation4 := get_rotation4_from_rotation3(rotation3)
 
 	translation4 := get_translation4(mesh.translation)
 
 	world_transform := translation4 * rotation4 * scale4
 
+	camera_rotation3 := get_rotation3_from_new_axes(renderer.camera_axes)
 	camera_transform := get_look_axes4(renderer.camera_pos, renderer.camera_axes)
 
 	model_to_camera_transform := camera_transform * world_transform
 
-	renderer.vertex_camera_space_count = 0
-
 	// NOTE(khvorov) Transfrom from model to camera
+	renderer.vertex_camera_space_count = 0
 	for vertex in mesh.vertices {
 		vertex_camera := model_to_camera_transform * [4]f32{vertex.x, vertex.y, vertex.z, 1}
 		renderer.vertices_camera_space[renderer.vertex_camera_space_count] = vertex_camera
 		renderer.vertex_camera_space_count += 1
+	}
+
+	model_to_camera_rotation := camera_rotation3 * rotation3
+
+	renderer.normal_camera_space_count = 0
+	for normal in mesh.normals {
+		normal_camera := model_to_camera_rotation * normal
+		renderer.normals_camera_space[renderer.normal_camera_space_count] = normal_camera.xyz
+		renderer.normal_camera_space_count += 1
 	}
 
 	// NOTE(khvorov) Draw triangles
@@ -297,6 +315,42 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 						),
 						0xFFFF00FF,
 					)
+				}
+
+			}
+
+		}
+
+		for vertex, index in mesh_triangle_vertices {
+
+			normal_base := vertex
+			normal_base_ndc := renderer.projection * normal_base
+
+			if normal_base_ndc.z > 0 {
+				normal_base_ndc.xy /= normal_base_ndc.w
+
+				normal_base_px := ndc_to_pixels(normal_base_ndc.xy, renderer.pixels_dim)
+
+				normal_index := mesh_triangle.normal_indices[index]
+				normal := renderer.normals_camera_space[normal_index]
+
+				normal_tip := normal_base.xyz + 0.3 * normal
+				normal_tip4 := [4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 1}
+				normal_tip_ndc := renderer.projection * normal_tip4
+
+				if normal_tip_ndc.z > 0 {
+
+					normal_tip_ndc.xy /= normal_tip_ndc.w
+					normal_tip_px := ndc_to_pixels(normal_tip_ndc.xy, renderer.pixels_dim)
+					draw_line_px(
+						renderer,
+						clip_to_px_buffer_line(
+							LineSegment2d{normal_base_px, normal_tip_px},
+							renderer.pixels_dim,
+						),
+						0xFFFF00FF,
+					)
+
 				}
 
 			}
@@ -755,6 +809,12 @@ clip_to_px_buffer_line :: proc(line: LineSegment2d, px_dim: [2]int) -> LineSegme
 	result.end.x = line.start.x + p2 * rn2
 	result.end.y = line.start.y + p4 * rn2
 
+	// NOTE(khvorov) To avoid getting ambushed by floating point error
+	result.start.x = clamp(result.start.x, 0, f32(px_dim.x - 1))
+	result.start.y = clamp(result.start.y, 0, f32(px_dim.y - 1))
+	result.end.x = clamp(result.end.x, 0, f32(px_dim.x - 1))
+	result.end.y = clamp(result.end.y, 0, f32(px_dim.y - 1))
+
 	return result
 }
 
@@ -891,6 +951,34 @@ get_look_axes4 :: proc(eye: [3]f32, axes: [3][3]f32) -> matrix[4, 4]f32 {
 		axes.y.x, axes.y.y, axes.y.z, -linalg.dot(axes.y, eye),
 		axes.z.x, axes.z.y, axes.z.z, -linalg.dot(axes.z, eye),
 		0, 0, 0, 1,
+	}
+	//odinfmt: enable
+
+	return view
+}
+
+get_rotation4_from_rotation3 :: proc(rot3: matrix[3, 3]f32) -> matrix[4, 4]f32 {
+
+	//odinfmt: disable
+	result := matrix[4, 4]f32{
+		rot3[0, 0], rot3[0, 1], rot3[0, 2], 0,
+		rot3[1, 0], rot3[1, 1], rot3[1, 2], 0,
+		rot3[2, 0], rot3[2, 1], rot3[2, 2], 0,
+		0, 0, 0, 1,
+	}
+	//odinfmt: enable
+
+	return result
+}
+
+// Assumes the axes are normalized
+get_rotation3_from_new_axes :: proc(axes: [3][3]f32) -> matrix[3, 3]f32 {
+
+	//odinfmt: disable
+	view := matrix[3, 3]f32{
+		axes.x.x, axes.x.y, axes.x.z,
+		axes.y.x, axes.y.y, axes.y.z,
+		axes.z.x, axes.z.y, axes.z.z,
 	}
 	//odinfmt: enable
 

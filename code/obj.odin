@@ -11,9 +11,11 @@ ObjOption :: enum {
 read_obj :: proc(
 	file_data: []u8,
 	vertices: [][3]f32,
+	normals: [][3]f32,
 	faces: []Triangle,
 	options: bit_set[ObjOption] = nil,
 ) -> (
+	[][3]f32,
 	[][3]f32,
 	[]Triangle,
 ) {
@@ -23,6 +25,7 @@ read_obj :: proc(
 
 	vertex_count := 0
 	triangle_count := 0
+	normal_count := 0
 
 	for len(input_left) > 0 {
 
@@ -43,7 +46,7 @@ read_obj :: proc(
 			return num, input_left
 		}
 
-		read_face_entry :: proc(input: string, one_past_end: int) -> ([2]int, string) {
+		read_face_entry :: proc(input: string, one_past_end: int) -> ([3]int, string) {
 			input_left := input
 			assert(one_past_end != -1)
 			entry := input_left[:one_past_end]
@@ -68,11 +71,12 @@ read_obj :: proc(
 				return num, input_left
 			}
 
-			num1, num2: int
+			num1, num2, num3: int
 			num1, entry = read_one_number(entry)
 			num2, entry = read_one_number(entry)
+			num3, entry = read_one_number(entry)
 
-			return [2]int{num1, num2}, input_left
+			return [3]int{num1, num2, num3}, input_left
 		}
 
 		if len(line) >= 2 {
@@ -97,8 +101,18 @@ read_obj :: proc(
 				tex.y, line = parse_f32(line, len(line))
 				append(&tex_coords, tex)
 
+
+			case "vn":
+				line := line[1:]
+				normal: [3]f32
+				normal.x, line = parse_f32(line, strings.index_rune(line, ' '))
+				normal.y, line = parse_f32(line, strings.index_rune(line, ' '))
+				normal.z, line = parse_f32(line, len(line))
+				normals[normal_count] = normal
+				normal_count += 1
+
 			case "f ":
-				face_entries: [3][2]int
+				face_entries: [3][3]int
 				face_entries[0], line = read_face_entry(line, strings.index_rune(line, ' '))
 				face_entries[1], line = read_face_entry(line, strings.index_rune(line, ' '))
 				face_entries[2], line = read_face_entry(line, len(line))
@@ -112,6 +126,10 @@ read_obj :: proc(
 				triangle.texture[0] = tex_coords[face_entries[0][1] - 1]
 				triangle.texture[1] = tex_coords[face_entries[1][1] - 1]
 				triangle.texture[2] = tex_coords[face_entries[2][1] - 1]
+
+				triangle.normal_indices[0] = face_entries[0][2] - 1
+				triangle.normal_indices[1] = face_entries[1][2] - 1
+				triangle.normal_indices[2] = face_entries[2][2] - 1
 
 				triangle.color = 1
 
@@ -128,6 +146,7 @@ read_obj :: proc(
 	}
 
 	result_vertices := vertices[:vertex_count]
+	result_normals := normals[:normal_count]
 	result_faces := faces[:triangle_count]
 
 	if .ConvertToLeftHanded in options {
@@ -136,11 +155,17 @@ read_obj :: proc(
 			vertex.z *= -1
 		}
 
+		for normal in &result_normals {
+			normal.z *= -1
+		}
+
 		for face in &result_faces {
 			ind := &face.indices
 			tex := &face.texture
+			norm := &face.normal_indices
 			ind[1], ind[2] = ind[2], ind[1]
 			tex[1], tex[2] = tex[2], tex[1]
+			norm[1], norm[2] = norm[2], norm[1]
 		}
 	}
 
@@ -148,8 +173,11 @@ read_obj :: proc(
 		for vertex in &result_vertices {
 			vertex.y, vertex.z = -vertex.z, vertex.y
 		}
+		for normal in &result_normals {
+			normal.y, normal.z = -normal.z, normal.y
+		}
 	}
 
-	return result_vertices, result_faces
+	return result_vertices, result_normals, result_faces
 
 }

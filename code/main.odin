@@ -17,6 +17,7 @@ main :: proc() {
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Fiddle with movement sensitivity
 	// TODO(khvorov) Better shading with normal maps
+	// TODO(khvorov) Draw lines in 3d spaces properly (useful for normals)
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
@@ -51,14 +52,16 @@ main :: proc() {
 		)
 		assert(mesh_contents_ok)
 
-		mesh.vertices, mesh.triangles = read_obj(
+		mesh.vertices, mesh.normals, mesh.triangles = read_obj(
 			mesh_contents,
 			renderer.vertices[renderer.vertex_count:],
+			renderer.normals[renderer.normal_count:],
 			renderer.triangles[renderer.triangle_count:],
 			options,
 		)
 
 		renderer.vertex_count += len(mesh.vertices)
+		renderer.normal_count += len(mesh.normals)
 		renderer.triangle_count += len(mesh.triangles)
 
 		texture: Maybe(Texture)
