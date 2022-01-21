@@ -31,8 +31,6 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	window_instance := win32.get_module_handle_a(nil)
 	assert(window_instance != nil)
 
-	COLOR_WINDOW :: 5
-
 	window_class: win32.Wnd_Class_Ex_A
 	window_class.size = size_of(window_class)
 	window_class.style = win32.CS_HREDRAW | win32.CS_VREDRAW
@@ -60,6 +58,7 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	)
 	assert(hwnd != nil)
 
+	// NOTE(khvorov) To be able to access stuff in the callback
 	win32.set_window_long_ptr_a(hwnd, win32.GWLP_USERDATA, win32.Long_Ptr(uintptr(window)))
 
 	// NOTE(khvorov) Resize so that dim corresponds to the client area
@@ -177,58 +176,83 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 		case win32.WM_KEYDOWN, win32.WM_SYSKEYDOWN, win32.WM_KEYUP, win32.WM_SYSKEYUP:
 			ended_down := (message.lparam & (1 << 31)) == 0
+
 			switch message.wparam {
+
 			case win32.VK_RETURN:
 				record_key(input, .Enter, ended_down)
+
 			case win32.VK_MENU:
 				if message.lparam & (1 << 24) != 0 {
 					record_key(input, .AltR, ended_down)
 				}
+
 			case win32.VK_SPACE:
 				record_key(input, .Space, ended_down)
+
 			case win32.VK_CONTROL:
 				record_key(input, .Ctrl, ended_down)
+
 			case win32.VK_SHIFT:
 				record_key(input, .Shift, ended_down)
+
 			case 'W':
 				record_key(input, .W, ended_down)
+
 			case 'A':
 				record_key(input, .A, ended_down)
+
 			case 'S':
 				record_key(input, .S, ended_down)
+
 			case 'D':
 				record_key(input, .D, ended_down)
+
 			case 'Q':
 				record_key(input, .Q, ended_down)
+
 			case 'E':
 				record_key(input, .E, ended_down)
+
 			case '1':
 				record_key(input, .Digit1, ended_down)
+
 			case '2':
 				record_key(input, .Digit2, ended_down)
+
 			case '3':
 				record_key(input, .Digit3, ended_down)
+
 			case '4':
 				record_key(input, .Digit4, ended_down)
+
 			case '5':
 				record_key(input, .Digit5, ended_down)
+
 			case '6':
 				record_key(input, .Digit6, ended_down)
+
 			case '7':
 				record_key(input, .Digit7, ended_down)
+
 			case '8':
 				record_key(input, .Digit8, ended_down)
+
 			case '9':
 				record_key(input, .Digit9, ended_down)
+
 			case '0':
 				record_key(input, .Digit0, ended_down)
+
 			case win32.VK_F1:
 				record_key(input, .F1, ended_down)
+
 			}
 
 		// NOTE(khvorov) Update mouse delta
 		case win32.WM_INPUT:
 			if window.mouse_camera_control {
+
 				raw: win32.Raw_Input
 				size := u32(size_of(raw))
 
@@ -244,6 +268,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 					y_pos := raw.data.mouse.last_y
 					input.cursor_delta = [2]f32{f32(x_pos), f32(y_pos)}
 				}
+
 			}
 
 		case:
@@ -275,6 +300,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 
 	if window.is_running {
+
 		result := win32.stretch_dibits(
 			window.platform.hdc,
 			0,
@@ -294,6 +320,7 @@ display_pixels :: proc(window: ^Window, pixels: []u32, pixels_dim: [2]int) {
 			result == i32(pixels_dim.y),
 			fmt.tprintf("expected {}, got {}\n", pixels_dim.y, result),
 		)
+
 	}
 
 }
