@@ -333,9 +333,9 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 				normal_base_px := ndc_to_pixels(normal_base_ndc.xy, renderer.pixels_dim)
 
 				normal_index := mesh_triangle.normal_indices[index]
-				normal := renderer.normals_camera_space[normal_index]
+				vertex_normal := renderer.normals_camera_space[normal_index]
 
-				normal_tip := normal_base.xyz + 0.3 * normal
+				normal_tip := normal_base.xyz + 0.3 * vertex_normal
 				normal_tip4 := [4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 1}
 				normal_tip_ndc := renderer.projection * normal_tip4
 
