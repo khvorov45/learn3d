@@ -79,51 +79,75 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 		case .KEYDOWN, .KEYUP:
 			ended_down := event.type == .KEYDOWN
+
 			#partial switch event.key.keysym.sym {
+
 			case .RETURN:
 				record_key(input, .Enter, ended_down)
+
 			case .RALT:
 				record_key(input, .AltR, ended_down)
+
 			case .W:
 				record_key(input, .W, ended_down)
+
 			case .A:
 				record_key(input, .A, ended_down)
+
 			case .S:
 				record_key(input, .S, ended_down)
+
 			case .D:
 				record_key(input, .D, ended_down)
+
 			case .Q:
 				record_key(input, .Q, ended_down)
+
 			case .E:
 				record_key(input, .E, ended_down)
+
 			case .NUM1:
 				record_key(input, .Digit1, ended_down)
+
 			case .NUM2:
 				record_key(input, .Digit2, ended_down)
+
 			case .NUM3:
 				record_key(input, .Digit3, ended_down)
+
 			case .NUM4:
 				record_key(input, .Digit4, ended_down)
+
 			case .NUM5:
 				record_key(input, .Digit5, ended_down)
+
 			case .NUM6:
 				record_key(input, .Digit6, ended_down)
+
 			case .NUM7:
 				record_key(input, .Digit7, ended_down)
+
 			case .NUM8:
 				record_key(input, .Digit8, ended_down)
+
 			case .NUM9:
 				record_key(input, .Digit9, ended_down)
+
 			case .NUM0:
 				record_key(input, .Digit0, ended_down)
+
 			case .LSHIFT, .RSHIFT:
 				record_key(input, .Shift, ended_down)
+
 			case .SPACE:
 				record_key(input, .Space, ended_down)
+
 			case .LCTRL, .RCTRL:
 				record_key(input, .Ctrl, ended_down)
+
 			case .F1:
 				record_key(input, .F1, ended_down)
+
 			}
 
 		case .MOUSEMOTION:
