@@ -53,7 +53,7 @@ Mesh :: struct {
 }
 
 Triangle :: struct {
-	indices: [3]int, // TODO(khvorov) What if I make these be vertices?
+	indices: [3]int,
 	color:   [4]f32,
 	texture: [3][2]f32,
 }
