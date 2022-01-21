@@ -46,23 +46,21 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	window^ = Window{
 		true,
 		false,
+		true,
 		false,
 		[2]int{width, height},
 		{sdl_window, renderer, texture, texture_dim},
 	}
 }
 
-toggle_mouse_camera_control :: proc(window: ^Window) {
+unclip_and_show_cursor :: proc(window: ^Window) {
+	sdl.SetWindowMouseGrab(window.platform.window, false)
+	sdl.SetRelativeMouseMode(false)
+}
 
-	if window.mouse_camera_control {
-		sdl.SetWindowMouseGrab(window.platform.window, false)
-		sdl.SetRelativeMouseMode(false)
-	} else {
-		sdl.SetWindowMouseGrab(window.platform.window, true)
-		sdl.SetRelativeMouseMode(true)
-	}
-
-	window.mouse_camera_control = !window.mouse_camera_control
+clip_and_hide_cursor :: proc(window: ^Window) {
+	sdl.SetWindowMouseGrab(window.platform.window, true)
+	sdl.SetRelativeMouseMode(true)
 }
 
 poll_input :: proc(window: ^Window, input: ^Input) {
@@ -151,8 +149,25 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 			}
 
 		case .MOUSEMOTION:
-			if window.mouse_camera_control {
+			if window.mouse_camera_control && window.is_focused {
 				input.cursor_delta = [2]f32{f32(event.motion.xrel), f32(event.motion.yrel)}
+			}
+
+		case .WINDOWEVENT:
+			#partial switch event.window.event {
+
+			case .FOCUS_LOST:
+				window.is_focused = false
+				if window.mouse_camera_control {
+					unclip_and_show_cursor(window)
+				}
+
+			case .FOCUS_GAINED:
+				window.is_focused = true
+				if window.mouse_camera_control {
+					clip_and_hide_cursor(window)
+				}
+
 			}
 
 		}

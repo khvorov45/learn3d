@@ -35,6 +35,7 @@
     "SYSKEYUP",
     "texel",
     "tprintf",
+    "unclip",
     "VREDRAW",
     "wparam",
     "xrel",

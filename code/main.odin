@@ -3,7 +3,6 @@ package learn3d
 import "core:time"
 import "core:fmt"
 import "core:math"
-import "core:os"
 
 import mu "vendor:microui"
 
@@ -20,7 +19,6 @@ main :: proc() {
 	// TODO(khvorov) Draw lines in 3d spaces properly (useful for normals)
 	// TODO(khvorov) Texture filtering
 	// TODO(khvorov) Alpha blending (transparent UI)
-	// TODO(khvorov) Alt+Tab handling
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
@@ -103,6 +101,9 @@ main :: proc() {
 		begin_timed_section(.Input)
 
 		clear_half_transitions(&input)
+		if !window.is_focused {
+			clear_ended_down(&input)
+		}
 		poll_input(&window, &input)
 
 		end_timed_section(.Input)
@@ -141,7 +142,7 @@ main :: proc() {
 			renderer.camera_axes.y = camera_z_rotation * renderer.camera_axes.y
 		}
 
-		if window.mouse_camera_control {
+		if window.mouse_camera_control && window.is_focused {
 
 			{
 				camera_y_rotation := get_rotation3(

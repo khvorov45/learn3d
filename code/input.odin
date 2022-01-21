@@ -20,6 +20,12 @@ Key :: struct {
 	half_transition_count: int,
 }
 
+clear_ended_down :: proc(input: ^Input) {
+	for key in &input.keys {
+		key.ended_down = false
+	}
+}
+
 clear_half_transitions :: proc(input: ^Input) {
 	for key in &input.keys {
 		key.half_transition_count = 0

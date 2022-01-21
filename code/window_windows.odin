@@ -127,39 +127,34 @@ init_window :: proc(window: ^Window, title: string, width: int, height: int) {
 	window^ = Window{
 		true,
 		false,
+		true,
 		false,
 		window_dim,
 		{decorations_dim, hwnd, hdc, pixel_info, previous_placement, context},
 	}
 }
 
-toggle_mouse_camera_control :: proc(window: ^Window) {
+unclip_and_show_cursor :: proc(window: ^Window) {
+	clip_cursor(nil)
+	show_cursor(true)
+}
+
+clip_and_hide_cursor :: proc(window: ^Window) {
 
 	hwnd := window.platform.hwnd
 
-	if window.mouse_camera_control {
+	client_topleft := win32.Point{0, 0}
+	win32.client_to_screen(hwnd, &client_topleft)
+	client_bottomright := win32.Point{i32(window.dim.x), i32(window.dim.y)}
+	win32.client_to_screen(hwnd, &client_bottomright)
 
-		clip_cursor(nil)
-		show_cursor(true)
-
-	} else {
-
-		client_topleft := win32.Point{0, 0}
-		win32.client_to_screen(hwnd, &client_topleft)
-		client_bottomright := win32.Point{i32(window.dim.x), i32(window.dim.y)}
-		win32.client_to_screen(hwnd, &client_bottomright)
-
-		confine: win32.Rect
-		confine.left = client_topleft.x
-		confine.top = client_topleft.y
-		confine.right = client_bottomright.x
-		confine.bottom = client_bottomright.y
-		clip_cursor(&confine)
-		show_cursor(false)
-
-	}
-
-	window.mouse_camera_control = !window.mouse_camera_control
+	confine: win32.Rect
+	confine.left = client_topleft.x
+	confine.top = client_topleft.y
+	confine.right = client_bottomright.x
+	confine.bottom = client_bottomright.y
+	clip_cursor(&confine)
+	show_cursor(false)
 
 }
 
@@ -251,7 +246,7 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 		// NOTE(khvorov) Update mouse delta
 		case win32.WM_INPUT:
-			if window.mouse_camera_control {
+			if window.mouse_camera_control && window.is_focused {
 
 				raw: win32.Raw_Input
 				size := u32(size_of(raw))
@@ -343,6 +338,20 @@ window_proc :: proc "std" (
 
 		case win32.WM_DESTROY:
 			window.is_running = false
+
+		case win32.WM_KILLFOCUS:
+			window.is_focused = false
+			if window.mouse_camera_control {
+				unclip_and_show_cursor(window)
+			}
+			result = win32.def_window_proc_a(hwnd, message, wparam, lparam)
+
+		case win32.WM_SETFOCUS:
+			window.is_focused = true
+			if window.mouse_camera_control {
+				clip_and_hide_cursor(window)
+			}
+			result = win32.def_window_proc_a(hwnd, message, wparam, lparam)
 
 		case:
 			result = win32.def_window_proc_a(hwnd, message, wparam, lparam)
