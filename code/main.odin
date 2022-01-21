@@ -18,6 +18,9 @@ main :: proc() {
 	// TODO(khvorov) Fiddle with movement sensitivity
 	// TODO(khvorov) Better shading with normal maps
 	// TODO(khvorov) Draw lines in 3d spaces properly (useful for normals)
+	// TODO(khvorov) Texture filtering
+	// TODO(khvorov) Alpha blending (transparent UI)
+	// TODO(khvorov) Alt+Tab handling
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
