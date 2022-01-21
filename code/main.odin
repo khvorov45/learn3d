@@ -69,9 +69,12 @@ main :: proc() {
 		{.ConvertToLeftHanded, .SwapZAndY},
 	)
 
-	target_framerate := 30
-	target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
-	target_frame_duration := time.Duration(target_frame_ns)
+	target_frame_duration: time.Duration
+	{
+		target_framerate := 30
+		target_frame_ns := 1.0 / f64(target_framerate) * f64(time.Second)
+		target_frame_duration = time.Duration(target_frame_ns)
+	}
 
 	input: Input
 
@@ -110,7 +113,7 @@ main :: proc() {
 
 		begin_timed_section(.Update)
 
-		if input.keys[KeyID.AltR].ended_down && was_pressed(input, .Enter) {
+		if input.keys[.AltR].ended_down && was_pressed(input, .Enter) {
 			toggle_fullscreen(&window)
 		}
 
@@ -120,17 +123,17 @@ main :: proc() {
 
 		speed: f32 = 0.02
 		mouse_sensitivity: f32 = 0.01
-		if input.keys[KeyID.Shift].ended_down {
+		if input.keys[.Shift].ended_down {
 			speed *= 5
 		}
 
 		// NOTE(khvorov) Rotate camera input
 		{
 			delta_z: f32 = 0
-			if input.keys[KeyID.Q].ended_down {
+			if input.keys[.Q].ended_down {
 				delta_z += speed
 			}
-			if input.keys[KeyID.E].ended_down {
+			if input.keys[.E].ended_down {
 				delta_z -= speed
 			}
 			camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
@@ -161,25 +164,26 @@ main :: proc() {
 		}
 
 		// NOTE(khvorov) Move camera input
-		if input.keys[KeyID.A].ended_down {
+		if input.keys[.A].ended_down {
 			renderer.camera_pos -= speed * renderer.camera_axes.x
 		}
-		if input.keys[KeyID.D].ended_down {
+		if input.keys[.D].ended_down {
 			renderer.camera_pos += speed * renderer.camera_axes.x
 		}
-		if input.keys[KeyID.W].ended_down {
+		if input.keys[.W].ended_down {
 			renderer.camera_pos += speed * renderer.camera_axes.z
 		}
-		if input.keys[KeyID.S].ended_down {
+		if input.keys[.S].ended_down {
 			renderer.camera_pos -= speed * renderer.camera_axes.z
 		}
-		if input.keys[KeyID.Space].ended_down {
+		if input.keys[.Space].ended_down {
 			renderer.camera_pos += speed * renderer.camera_axes.y
 		}
-		if input.keys[KeyID.Ctrl].ended_down {
+		if input.keys[.Ctrl].ended_down {
 			renderer.camera_pos -= speed * renderer.camera_axes.y
 		}
 
+		// NOTE(khvorov) Display options
 		if was_pressed(input, .Digit1) {
 			toggle_option(&renderer, .BaseColor)
 		}
@@ -202,6 +206,7 @@ main :: proc() {
 			toggle_option(&renderer, .BackfaceCull)
 		}
 
+		// NOTE(khvorov) UI
 		if !window.mouse_camera_control {
 
 			mu.begin(&ui)
