@@ -12,7 +12,6 @@ main :: proc() {
 
 	// TODO(khvorov) More UI - show controls, make them clickable probably
 	// TODO(khvorov) Z buffer visualization
-	// TODO(khvorov) Implement Alt+F4
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Fiddle with movement sensitivity
 	// TODO(khvorov) Better shading with normal maps
@@ -113,6 +112,11 @@ main :: proc() {
 		//
 
 		begin_timed_section(.Update)
+
+		alt_held := input.keys[.AltL].ended_down || input.keys[.AltR].ended_down
+		if alt_held && was_pressed(input, .F4) {
+			window.is_running = false
+		}
 
 		if input.keys[.AltR].ended_down && was_pressed(input, .Enter) {
 			toggle_fullscreen(&window)

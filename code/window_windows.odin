@@ -180,6 +180,8 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 			case win32.VK_MENU:
 				if message.lparam & (1 << 24) != 0 {
 					record_key(input, .AltR, ended_down)
+				} else {
+					record_key(input, .AltL, ended_down)
 				}
 
 			case win32.VK_SPACE:
@@ -241,6 +243,9 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 			case win32.VK_F1:
 				record_key(input, .F1, ended_down)
+
+			case win32.VK_F4:
+				record_key(input, .F4, ended_down)
 
 			}
 

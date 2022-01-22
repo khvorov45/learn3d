@@ -86,6 +86,9 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 			case .RALT:
 				record_key(input, .AltR, ended_down)
 
+			case .LALT:
+				record_key(input, .AltL, ended_down)
+
 			case .W:
 				record_key(input, .W, ended_down)
 
@@ -145,6 +148,9 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 			case .F1:
 				record_key(input, .F1, ended_down)
+
+			case .F4:
+				record_key(input, .F4, ended_down)
 
 			}
 
