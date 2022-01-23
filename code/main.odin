@@ -13,7 +13,6 @@ main :: proc() {
 	// TODO(khvorov) More UI - show controls, make them clickable probably
 	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Draw some reference lines
-	// TODO(khvorov) Fiddle with movement sensitivity
 	// TODO(khvorov) Better shading with normal maps
 	// TODO(khvorov) Draw lines in 3d spaces properly (useful for normals)
 	// TODO(khvorov) Texture filtering
@@ -87,6 +86,10 @@ main :: proc() {
 
 	init_global_timings()
 
+	// NOTE(khvorov) Use this for speed adjustments since I won't be hitting
+	// consistent framerate any time soon
+	last_frame_s := f32(time.duration_seconds(target_frame_duration))
+
 	for window.is_running {
 
 		begin_timed_frame()
@@ -126,20 +129,21 @@ main :: proc() {
 			toggle_mouse_camera_control(&window)
 		}
 
-		speed: f32 = 0.02
-		mouse_sensitivity: f32 = 0.01
+		speed_coef: f32 = 1
 		if input.keys[.Shift].ended_down {
-			speed *= 5
+			speed_coef *= 5
 		}
 
 		// NOTE(khvorov) Rotate camera input
 		{
+			angular_vel: f32 = 30 * speed_coef // NOTE(khvorov) Degrees per second
+			abs_delta := math.RAD_PER_DEG * angular_vel * last_frame_s
 			delta_z: f32 = 0
 			if input.keys[.Q].ended_down {
-				delta_z += speed
+				delta_z += abs_delta
 			}
 			if input.keys[.E].ended_down {
-				delta_z -= speed
+				delta_z -= abs_delta
 			}
 			camera_z_rotation := get_rotation3(renderer.camera_axes.z, delta_z)
 			renderer.camera_axes.x = camera_z_rotation * renderer.camera_axes.x
@@ -148,10 +152,11 @@ main :: proc() {
 
 		if window.mouse_camera_control && window.is_focused {
 
+			mouse_sensitivity: f32 = 0.3
 			{
 				camera_y_rotation := get_rotation3(
 					renderer.camera_axes.y,
-					input.cursor_delta.x * mouse_sensitivity,
+					input.cursor_delta.x * mouse_sensitivity * last_frame_s,
 				)
 				renderer.camera_axes.x = camera_y_rotation * renderer.camera_axes.x
 				renderer.camera_axes.z = camera_y_rotation * renderer.camera_axes.z
@@ -160,7 +165,7 @@ main :: proc() {
 			{
 				camera_x_rotation := get_rotation3(
 					renderer.camera_axes.x,
-					input.cursor_delta.y * mouse_sensitivity,
+					input.cursor_delta.y * mouse_sensitivity * last_frame_s,
 				)
 				renderer.camera_axes.y = camera_x_rotation * renderer.camera_axes.y
 				renderer.camera_axes.z = camera_x_rotation * renderer.camera_axes.z
@@ -169,23 +174,25 @@ main :: proc() {
 		}
 
 		// NOTE(khvorov) Move camera input
+		move_speed: f32 = 1 * speed_coef // NOTE(khvorov) World units per second
+		abs_move_delta := move_speed * last_frame_s
 		if input.keys[.A].ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.x
+			renderer.camera_pos -= abs_move_delta * renderer.camera_axes.x
 		}
 		if input.keys[.D].ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.x
+			renderer.camera_pos += abs_move_delta * renderer.camera_axes.x
 		}
 		if input.keys[.W].ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.z
+			renderer.camera_pos += abs_move_delta * renderer.camera_axes.z
 		}
 		if input.keys[.S].ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.z
+			renderer.camera_pos -= abs_move_delta * renderer.camera_axes.z
 		}
 		if input.keys[.Space].ended_down {
-			renderer.camera_pos += speed * renderer.camera_axes.y
+			renderer.camera_pos += abs_move_delta * renderer.camera_axes.y
 		}
 		if input.keys[.Ctrl].ended_down {
-			renderer.camera_pos -= speed * renderer.camera_axes.y
+			renderer.camera_pos -= abs_move_delta * renderer.camera_axes.y
 		}
 
 		// NOTE(khvorov) Display options
@@ -308,6 +315,7 @@ main :: proc() {
 
 		frame_work := time.tick_since(time_frame_start)
 		frame_sleep := target_frame_duration - frame_work - time.Millisecond
+		last_frame_s = f32(time.duration_seconds(frame_work + frame_sleep))
 		if frame_sleep > 0 {
 			time.sleep(frame_sleep)
 		}
