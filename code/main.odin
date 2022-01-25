@@ -14,7 +14,6 @@ main :: proc() {
 	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Better shading with normal maps
-	// TODO(khvorov) Draw lines in 3d spaces properly (useful for normals)
 	// TODO(khvorov) Texture filtering
 	// TODO(khvorov) Alpha blending (transparent UI)
 

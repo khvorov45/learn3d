@@ -100,6 +100,11 @@ LineSegment2d :: struct {
 	end:   [2]f32,
 }
 
+LineSegment3d :: struct {
+	start: [3]f32,
+	end:   [3]f32,
+}
+
 init_renderer :: proc(
 	renderer: ^Renderer,
 	width,
@@ -302,63 +307,88 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 					)
 				}
 
-				if .Normals in renderer.options {
-					normal_tip := 0.3 * normal + est_center.xyz
-					normal_tip4 := [4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 1}
-					normal_tip_ndc := renderer.projection * normal_tip4
-					normal_tip_ndc.xy /= normal_tip_ndc.w
-					normal_tip_px := ndc_to_pixels(normal_tip_ndc.xy, renderer.pixels_dim)
-					draw_line_px(
-						renderer,
-						clip_to_px_buffer_line(
-							LineSegment2d{est_center_px, normal_tip_px},
-							renderer.pixels_dim,
-						),
-						0xFFFF00FF,
-					)
-				}
-
 			}
 
 		}
 
-		for vertex, index in mesh_triangle_vertices {
+		if .Normals in renderer.options {
 
-			normal_base := vertex
-			normal_base_ndc := renderer.projection * normal_base
+			// NOTE(khvorov) Vertex normals
+			for vertex, index in mesh_triangle_vertices {
 
-			if normal_base_ndc.z > 0 {
-				normal_base_ndc.xy /= normal_base_ndc.w
-
-				normal_base_px := ndc_to_pixels(normal_base_ndc.xy, renderer.pixels_dim)
-
+				normal_base := vertex.xyz
 				normal_index := mesh_triangle.normal_indices[index]
 				vertex_normal := renderer.normals_camera_space[normal_index]
+				normal_tip := normal_base + 0.3 * vertex_normal
 
-				normal_tip := normal_base.xyz + 0.3 * vertex_normal
-				normal_tip4 := [4]f32{normal_tip.x, normal_tip.y, normal_tip.z, 1}
-				normal_tip_ndc := renderer.projection * normal_tip4
+				draw_line(renderer, LineSegment3d{normal_base, normal_tip}, 0xFFFF00FF)
+			}
 
-				if normal_tip_ndc.z > 0 {
+			// NOTE(khvorov) Triangle normals
+			vert := mesh_triangle_vertices
+			est_center := (vert[0] + vert[1] + vert[2]) / 3
+			normal_base := est_center.xyz
+			normal_tip := normal_base + 0.3 * normal
 
-					normal_tip_ndc.xy /= normal_tip_ndc.w
-					normal_tip_px := ndc_to_pixels(normal_tip_ndc.xy, renderer.pixels_dim)
-					draw_line_px(
-						renderer,
-						clip_to_px_buffer_line(
-							LineSegment2d{normal_base_px, normal_tip_px},
-							renderer.pixels_dim,
-						),
-						0xFFFF00FF,
-					)
+			draw_line(renderer, LineSegment3d{normal_base, normal_tip}, 0xFFFFFF00)
+		}
 
-				}
+	}
 
+}
+
+draw_line :: proc(renderer: ^Renderer, line: LineSegment3d, color: u32) {
+
+	start := [4]f32{line.start.x, line.start.y, line.start.z, 1}
+	end := [4]f32{line.end.x, line.end.y, line.end.z, 1}
+
+	start_clip := renderer.projection * start
+	end_clip := renderer.projection * end
+
+	out_of_bounds := false
+	for plane in ClipPlane {
+
+		start_dot := get_clipspace_normal_dot(start_clip, plane)
+		end_dot := get_clipspace_normal_dot(end_clip, plane)
+
+		if start_dot < 0 && end_dot < 0 {
+			out_of_bounds = true
+			break
+		}
+
+		if start_dot * end_dot < 0 {
+			range := end_dot - start_dot
+			from_end := end_dot / range
+
+			intersection := (1 - from_end) * end_clip + from_end * start_clip
+
+			if start_dot > 0 {
+				end_clip = intersection
+			} else {
+				start_clip = intersection
 			}
 
 		}
 
 	}
+
+	if !out_of_bounds {
+
+		start_clip.xy /= start_clip.w
+		end_clip.xy /= end_clip.w
+
+		start_px := ndc_to_pixels(start_clip.xy, renderer.pixels_dim)
+		end_px := ndc_to_pixels(end_clip.xy, renderer.pixels_dim)
+
+		draw_line_px(
+			renderer,
+			LineSegment2d{start_px, end_px},
+			color,
+			[2]f32{start_clip.w, end_clip.w},
+		)
+
+	}
+
 
 }
 
@@ -575,16 +605,50 @@ draw_rect_px :: proc(renderer: ^Renderer, rect: Rect2d, color: u32) {
 	}
 }
 
-draw_line_px :: proc(renderer: ^Renderer, line: LineSegment2d, color: u32) {
+draw_line_px :: proc(
+	renderer: ^Renderer,
+	line: LineSegment2d,
+	color: u32,
+	og_w: Maybe([2]f32) = nil,
+) {
 	delta := line.end - line.start
 	run_length := max(abs(delta.x), abs(delta.y))
 	inc := delta / run_length
 
+	total_length := linalg.length(delta)
+	inc_length := linalg.length(inc)
+	one_over_w_start: f32 = 0
+	one_over_w_end: f32 = 0
+	if og_w, ok := og_w.([2]f32); ok {
+		one_over_w_start = 1 / og_w[0]
+		one_over_w_end = 1 / og_w[1]
+	}
+
 	cur := line.start
-	for _ in 0 ..< int(run_length) {
+	for step in 0 ..< int(run_length) {
+
 		cur_rounded_x := int(math.round(cur.x))
 		cur_rounded_y := int(math.round(cur.y))
-		renderer.pixels[cur_rounded_y * renderer.pixels_dim.x + cur_rounded_x] = color
+
+		px_index := cur_rounded_y * renderer.pixels_dim.x + cur_rounded_x
+
+		if og_w, ok := og_w.([2]f32); ok {
+
+			far_along := f32(step) * inc_length / run_length
+			one_over_w := (1 - far_along) * one_over_w_start + far_along * one_over_w_end
+			this_w := 1 / one_over_w
+
+			if renderer.z_buffer[px_index] > this_w {
+
+				renderer.z_buffer[px_index] = this_w
+				renderer.pixels[px_index] = color
+
+			}
+
+		} else {
+			renderer.pixels[px_index] = color
+		}
+
 		cur += inc
 	}
 }
@@ -639,7 +703,7 @@ get_clipspace_normal_dot :: proc(vertex: [4]f32, plane: ClipPlane) -> f32 {
 	case .Near:
 		result = vertex.z
 	case .Far:
-		result = vertex.w - vertex.z
+		result = 1 - vertex.z
 	case .Left:
 		result = vertex.x - -vertex.w
 	case .Right:
