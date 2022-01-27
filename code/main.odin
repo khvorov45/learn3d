@@ -10,7 +10,6 @@ import bf "bitmap_font"
 
 main :: proc() {
 
-	// TODO(khvorov) More UI - show controls, make them clickable probably
 	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Better shading with normal maps
@@ -194,29 +193,6 @@ main :: proc() {
 			renderer.camera_pos -= abs_move_delta * renderer.camera_axes.y
 		}
 
-		// NOTE(khvorov) Display options
-		if was_pressed(input, .Digit1) {
-			toggle_option(&renderer, .BaseColor)
-		}
-		if was_pressed(input, .Digit2) {
-			toggle_option(&renderer, .TextureColor)
-		}
-		if was_pressed(input, .Digit3) {
-			toggle_option(&renderer, .Wireframe)
-		}
-		if was_pressed(input, .Digit4) {
-			toggle_option(&renderer, .Vertices)
-		}
-		if was_pressed(input, .Digit5) {
-			toggle_option(&renderer, .Normals)
-		}
-		if was_pressed(input, .Digit6) {
-			toggle_option(&renderer, .Midpoints)
-		}
-		if was_pressed(input, .Digit7) {
-			toggle_option(&renderer, .BackfaceCull)
-		}
-
 		// NOTE(khvorov) UI
 		if !window.mouse_camera_control {
 
@@ -243,6 +219,35 @@ main :: proc() {
 						&ui,
 						fmt.tprintf("%.2f", timed_section.total_ms / f64(timed_section.hit_count)),
 					)
+				}
+
+				mu.end_window(&ui)
+			}
+
+			if mu.begin_window(&ui, "Controls", mu.Rect{0, 350, 400, 700}) {
+
+				row_widths := [1]i32{400}
+				mu.layout_row(&ui, row_widths[:])
+
+				mu.text(&ui, "F1 - toggle UI")
+				mu.text(&ui, "WS - move camera in Z")
+				mu.text(&ui, "AD - move camera in X")
+				mu.text(&ui, "Ctrl,Space - move camera in Y")
+				mu.text(&ui, "Q,W - rotate camera in Z")
+				mu.text(&ui, "Mouse - rotate camera in XY (UI off)")
+
+				mu.end_window(&ui)
+			}
+
+			if mu.begin_window(&ui, "View options", mu.Rect{400, 350, 200, 700}) {
+
+				for option in DisplayOption {
+					cur_state := option in renderer.options
+					new_state := cur_state
+					mu.checkbox(&ui, fmt.tprintf("{}", option), &new_state)
+					if new_state != cur_state {
+						toggle_option(&renderer, option)
+					}
 				}
 
 				mu.end_window(&ui)
@@ -297,6 +302,19 @@ main :: proc() {
 					)
 
 				case ^mu.Command_Icon:
+					color := mu_color_to_u32(cmd.color)
+					topleft := [2]f32{f32(cmd.rect.x), f32(cmd.rect.y)}
+					bottomright := topleft + [2]f32{f32(cmd.rect.w), f32(cmd.rect.h)}
+
+					empty := bottomright - (topleft + [2]f32{bf.GLYPH_WIDTH_PX, bf.GLYPH_HEIGHT_PX})
+					topleft += empty * 0.5
+
+					#partial switch cmd.id {
+
+					case .CLOSE, .CHECK:
+						draw_bitmap_glyph_px(&renderer, 'x', topleft, color)
+
+					}
 
 				case ^mu.Command_Clip:
 
