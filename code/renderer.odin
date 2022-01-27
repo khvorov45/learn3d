@@ -6,7 +6,7 @@ Coordinates in 3d spaces: x+ right; y+ up; z+ inside (left-handed);
 Coordinates in pixels: x+ right; y+ down
 
 draw_*_px functions draw directly on the pixel buffer and do not perform
-clipping or bounds-checking
+clipping or bounds-checking (except text drawing, those won't draw out of bounds)
 */
 
 package learn3d
@@ -660,23 +660,24 @@ draw_bitmap_glyph_px :: proc(
 	topleft: [2]f32,
 	color: u32,
 ) {
-
 	px_coords := [2]int{int(math.ceil(topleft.x)), int(math.ceil(topleft.y))}
-	px := renderer.pixels[px_coords.y * renderer.pixels_dim.x + px_coords.x:]
-
 	bitmap := bf.get_glyph_u8_slice(glyph)
 
-	for row in bitmap {
+	for row, bitmap_row_index in bitmap {
 
 		for col in u8(0) ..< 8 {
 
 			if (row & (1 << col)) != 0 {
-				px[col] = color
+
+				px_row := px_coords.y + bitmap_row_index
+				px_col := px_coords.x + int(col)
+
+				if px_row >= 0 && px_row < renderer.pixels_dim.y && px_col >= 0 && px_col < renderer.pixels_dim.x {
+					px_index := px_row * renderer.pixels_dim.x + px_coords.x + int(col)
+					renderer.pixels[px_index] = color
+				}
 			}
-
 		}
-
-		px = px[renderer.pixels_dim.x:]
 	}
 
 }

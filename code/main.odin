@@ -290,7 +290,11 @@ main :: proc() {
 						[2]f32{f32(cmd.rect.x), f32(cmd.rect.y)},
 						[2]f32{f32(cmd.rect.w), f32(cmd.rect.h)},
 					}
-					draw_rect_px(&renderer, rect, mu_color_to_u32(cmd.color))
+					draw_rect_px(
+						&renderer,
+						clip_to_px_buffer_rect(rect, renderer.pixels_dim),
+						mu_color_to_u32(cmd.color),
+					)
 
 				case ^mu.Command_Icon:
 
