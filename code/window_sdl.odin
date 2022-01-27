@@ -176,6 +176,17 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 			}
 
+		case .MOUSEBUTTONDOWN, .MOUSEBUTTONUP:
+			ended_down := event.type == .MOUSEBUTTONDOWN
+			switch event.button.button {
+			case sdl.BUTTON_LEFT:
+				record_key(input, .MouseLeft, ended_down)
+			case sdl.BUTTON_MIDDLE:
+				record_key(input, .MouseMiddle, ended_down)
+			case sdl.BUTTON_RIGHT:
+				record_key(input, .MouseRight, ended_down)
+			}
+
 		}
 
 	}

@@ -220,9 +220,17 @@ main :: proc() {
 		// NOTE(khvorov) UI
 		if !window.mouse_camera_control {
 
+			mu.input_mouse_move(&ui, i32(input.cursor_pos.x), i32(input.cursor_pos.y))
+
+			if was_pressed(input, .MouseLeft) {
+				mu.input_mouse_down(&ui, i32(input.cursor_pos.x), i32(input.cursor_pos.y), .LEFT)
+			} else if was_unpressed(input, .MouseLeft) {
+				mu.input_mouse_up(&ui, i32(input.cursor_pos.x), i32(input.cursor_pos.y), .LEFT)
+			}
+
 			mu.begin(&ui)
 
-			if mu.begin_window(&ui, "Timings", mu.Rect{0, 0, 450, 300}) {
+			if mu.begin_window(&ui, "Timings", mu.Rect{0, 0, 450, 350}) {
 
 				row_widths := [4]i32{100, 100, 100, 100}
 				mu.layout_row(&ui, row_widths[:])
@@ -238,7 +246,6 @@ main :: proc() {
 				}
 
 				mu.end_window(&ui)
-
 			}
 
 			mu.end(&ui)

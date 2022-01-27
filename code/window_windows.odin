@@ -271,6 +271,24 @@ poll_input :: proc(window: ^Window, input: ^Input) {
 
 			}
 
+		case win32.WM_LBUTTONDOWN:
+			record_key(input, .MouseLeft, true)
+
+		case win32.WM_MBUTTONDOWN:
+			record_key(input, .MouseMiddle, true)
+
+		case win32.WM_RBUTTONDOWN:
+			record_key(input, .MouseRight, true)
+
+		case win32.WM_LBUTTONUP:
+			record_key(input, .MouseLeft, false)
+
+		case win32.WM_MBUTTONUP:
+			record_key(input, .MouseMiddle, false)
+
+		case win32.WM_RBUTTONUP:
+			record_key(input, .MouseRight, false)
+
 		case:
 			win32.translate_message(&message)
 			win32.dispatch_message_a(&message)
