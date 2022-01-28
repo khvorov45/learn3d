@@ -10,7 +10,6 @@ import bf "bitmap_font"
 
 main :: proc() {
 
-	// TODO(khvorov) Z buffer visualization
 	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Better shading with normal maps
 	// TODO(khvorov) Texture filtering

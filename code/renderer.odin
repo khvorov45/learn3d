@@ -46,6 +46,7 @@ DisplayOption :: enum {
 	Normals,
 	Midpoints,
 	BackfaceCull,
+	ZBuffer,
 }
 
 Mesh :: struct {
@@ -140,9 +141,14 @@ init_renderer :: proc(
 
 toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 	if option in renderer.options {
-		renderer.options ~= {option}
+		renderer.options -= {option}
 	} else {
-		renderer.options |= {option}
+		renderer.options += {option}
+		if option == .ZBuffer {
+			renderer.options -= {.BaseColor, .TextureColor}
+		} else if option == .BaseColor || option == .TextureColor {
+			renderer.options -= {.ZBuffer}
+		}
 	}
 }
 
@@ -257,7 +263,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 					og_w[index] = vertex.w
 				}
 
-				if renderer.options & {.BaseColor, .TextureColor} != nil {
+				if renderer.options & {.BaseColor, .TextureColor, .ZBuffer} != nil {
 					shaded_color := [4]f32{1, 1, 1, 1}
 					if .BaseColor in renderer.options {
 						shaded_color = mesh_triangle.color
@@ -493,7 +499,11 @@ draw_triangle_px :: proc(
 						renderer.z_buffer[px_index] = this_w
 
 						result_color := color
-						if tex, ok := texture.(Texture); ok {
+
+						if .ZBuffer in renderer.options {
+							z01 := (this_w - renderer.near) / (renderer.far - renderer.near)
+							result_color = [4]f32{z01, z01, z01, 1}
+						} else if tex, ok := texture.(Texture); ok {
 							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
 							tex_coord01 *= this_w
 
@@ -568,7 +578,11 @@ draw_triangle_px :: proc(
 						renderer.z_buffer[px_index] = this_w
 
 						result_color := color
-						if tex, ok := texture.(Texture); ok {
+
+						if .ZBuffer in renderer.options {
+							z01 := (this_w - renderer.near) / (renderer.far - renderer.near)
+							result_color = [4]f32{z01, z01, z01, 1}
+						} else if tex, ok := texture.(Texture); ok {
 							tex_coord01 := alpha * tex_top + beta * tex_mid + gamma * tex_bottom
 							tex_coord01 *= this_w
 
