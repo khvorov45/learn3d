@@ -47,6 +47,7 @@ DisplayOption :: enum {
 	Midpoints,
 	BackfaceCull,
 	ZBuffer,
+	ShadePerVertex,
 }
 
 Mesh :: struct {
@@ -68,6 +69,7 @@ Triangle :: struct {
 Polygon :: struct {
 	vertices:     [9][4]f32,
 	texture:      [9][2]f32,
+	normals:      [9][3]f32,
 	vertex_count: int,
 }
 
@@ -233,6 +235,8 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 			for vi in 0 ..< polygon.vertex_count {
 				polygon.vertices[vi] = triangle_clip_space[vi]
 				polygon.texture[vi] = mesh_triangle.texture[vi]
+				normal_index := mesh_triangle.normal_indices[vi]
+				polygon.normals[vi] = renderer.normals_camera_space[normal_index]
 			}
 			polygon_clipped := polygon
 			for plane in ClipPlane {
@@ -256,6 +260,11 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 				tex_coords[1] = polygon_clipped.texture[clipped_triangle_index - 2]
 				tex_coords[2] = polygon_clipped.texture[clipped_triangle_index - 1]
 
+				normals: [3][3]f32
+				normals[0] = polygon_clipped.normals[0]
+				normals[1] = polygon_clipped.normals[clipped_triangle_index - 2]
+				normals[2] = polygon_clipped.normals[clipped_triangle_index - 1]
+
 				vertices_px: [3][2]f32
 				og_w: [3]f32
 				for vertex, index in vertices {
@@ -264,16 +273,29 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 				}
 
 				if renderer.options & {.BaseColor, .TextureColor, .ZBuffer} != nil {
-					shaded_color := [4]f32{1, 1, 1, 1}
+
+					start_color := [4]f32{1, 1, 1, 1}
 					if .BaseColor in renderer.options {
-						shaded_color = mesh_triangle.color
+						start_color = mesh_triangle.color
 					}
-					shaded_color.rgb *= light_normal_dot
+
+					vertex_colors: [3][4]f32 = start_color
+					if .ShadePerVertex in renderer.options {
+						for vertex_color, vi in &vertex_colors {
+							vertex_normal := normals[vi]
+							vertex_light_normal_dot := clamp(linalg.dot(vertex_normal, -light_ray), 0, 1)
+							vertex_color.rgb *= vertex_light_normal_dot
+						}
+					} else {
+						vertex_colors *= light_normal_dot
+					}
+
 					tex := texture
 					if !(.TextureColor in renderer.options) {
 						tex = nil
 					}
-					draw_triangle_px(renderer, vertices_px, shaded_color, tex_coords, og_w, tex)
+
+					draw_triangle_px(renderer, vertices_px, vertex_colors, tex_coords, og_w, tex)
 				}
 
 				if .Wireframe in renderer.options {
@@ -414,7 +436,7 @@ draw_line_camera_space :: proc(renderer: ^Renderer, line: LineSegment3d, color: 
 draw_triangle_px :: proc(
 	renderer: ^Renderer,
 	vertices: [3][2]f32,
-	color: [4]f32,
+	colors: [3][4]f32,
 	tex_coords: [3][2]f32,
 	og_w: [3]f32,
 	texture: Maybe(Texture),
@@ -427,20 +449,24 @@ draw_triangle_px :: proc(
 	top, mid, bottom := vertices[0], vertices[1], vertices[2]
 	tex_top, tex_mid, tex_bottom := tex_coords[0], tex_coords[1], tex_coords[2]
 	w_top, w_mid, w_bottom := og_w[0], og_w[1], og_w[2]
+	color_top, color_mid, color_bottom := colors[0], colors[1], colors[2]
 	if top.y > mid.y {
 		top, mid = mid, top
 		tex_top, tex_mid = tex_mid, tex_top
 		w_top, w_mid = w_mid, w_top
+		color_top, color_mid = color_mid, color_top
 	}
 	if mid.y > bottom.y {
 		mid, bottom = bottom, mid
 		tex_mid, tex_bottom = tex_bottom, tex_mid
 		w_mid, w_bottom = w_bottom, w_mid
+		color_mid, color_bottom = color_bottom, color_mid
 	}
 	if top.y > mid.y {
 		top, mid = mid, top
 		tex_top, tex_mid = tex_mid, tex_top
 		w_top, w_mid = w_mid, w_top
+		color_top, color_mid = color_mid, color_top
 	}
 
 	// NOTE(khvorov) Midline
@@ -462,6 +488,10 @@ draw_triangle_px :: proc(
 	tex_top *= one_over_w_top
 	tex_mid *= one_over_w_mid
 	tex_bottom *= one_over_w_bottom
+
+	color_top *= one_over_w_top
+	color_mid *= one_over_w_mid
+	color_bottom *= one_over_w_bottom
 
 	tex_dim_f32: [2]f32
 	if tex, ok := texture.(Texture); ok {
@@ -511,7 +541,8 @@ draw_triangle_px :: proc(
 
 						renderer.z_buffer[px_index] = this_w
 
-						result_color := color
+						result_color := alpha * color_top + beta * color_mid + gamma * color_bottom
+						result_color *= this_w
 
 						if .ZBuffer in renderer.options {
 							z01 := (this_w - renderer.near) / (renderer.far - renderer.near)
@@ -527,7 +558,7 @@ draw_triangle_px :: proc(
 
 							tex_color32 := tex.memory[texel_index]
 							tex_color := color_to_4f32(tex_color32)
-							result_color = color * tex_color
+							result_color *= tex_color
 						}
 
 						result_color32 := color_to_u32argb(result_color)
@@ -590,7 +621,8 @@ draw_triangle_px :: proc(
 
 						renderer.z_buffer[px_index] = this_w
 
-						result_color := color
+						result_color := alpha * color_top + beta * color_mid + gamma * color_bottom
+						result_color *= this_w
 
 						if .ZBuffer in renderer.options {
 							z01 := (this_w - renderer.near) / (renderer.far - renderer.near)
@@ -606,7 +638,7 @@ draw_triangle_px :: proc(
 
 							tex_color32 := tex.memory[texel_index]
 							tex_color := color_to_4f32(tex_color32)
-							result_color = color * tex_color
+							result_color *= tex_color
 						}
 
 						result_color32 := color_to_u32argb(result_color)
@@ -763,6 +795,7 @@ clip_in_clip_space :: proc(polygon: Polygon, plane: ClipPlane) -> Polygon {
 
 		prev_vertex := polygon.vertices[polygon.vertex_count - 1]
 		prev_tex := polygon.texture[polygon.vertex_count - 1]
+		prev_normal := polygon.normals[polygon.vertex_count - 1]
 
 		prev_dot := get_clipspace_normal_dot(prev_vertex, plane)
 
@@ -770,6 +803,8 @@ clip_in_clip_space :: proc(polygon: Polygon, plane: ClipPlane) -> Polygon {
 
 			this_vertex := polygon.vertices[vertex_index]
 			this_tex := polygon.texture[vertex_index]
+			this_normal := polygon.normals[vertex_index]
+
 			this_dot := get_clipspace_normal_dot(this_vertex, plane)
 
 			if prev_dot * this_dot < 0 {
@@ -779,9 +814,11 @@ clip_in_clip_space :: proc(polygon: Polygon, plane: ClipPlane) -> Polygon {
 
 				intersection := (1 - from_prev) * prev_vertex + from_prev * this_vertex
 				tex_intersection := (1 - from_prev) * prev_tex + from_prev * this_tex
+				normal_intersection := (1 - from_prev) * prev_normal + from_prev * this_normal
 
 				result.vertices[result.vertex_count] = intersection
 				result.texture[result.vertex_count] = tex_intersection
+				result.normals[result.vertex_count] = normal_intersection
 				result.vertex_count += 1
 
 			}
@@ -790,12 +827,15 @@ clip_in_clip_space :: proc(polygon: Polygon, plane: ClipPlane) -> Polygon {
 
 				result.vertices[result.vertex_count] = this_vertex
 				result.texture[result.vertex_count] = this_tex
+				result.normals[result.vertex_count] = this_normal
 				result.vertex_count += 1
 
 			}
 
 			prev_vertex = this_vertex
 			prev_tex = this_tex
+			prev_normal = this_normal
+
 			prev_dot = this_dot
 
 		}

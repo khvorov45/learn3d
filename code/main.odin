@@ -88,6 +88,9 @@ main :: proc() {
 	// consistent framerate any time soon
 	last_frame_s := f32(time.duration_seconds(target_frame_duration))
 
+	mesh_sphere.translation.y += 1
+	mesh_sphere.translation.x += 1
+
 	for window.is_running {
 
 		begin_timed_frame()
@@ -296,9 +299,10 @@ main :: proc() {
 
 		}
 
-		draw_mesh(&renderer, mesh_milk, texture_milk)
-		draw_mesh(&renderer, mesh_wheel, texture_wheel)
-		draw_mesh(&renderer, mesh_box, texture_box)
+		//draw_mesh(&renderer, mesh_milk, texture_milk)
+		//draw_mesh(&renderer, mesh_wheel, texture_wheel)
+		//draw_mesh(&renderer, mesh_box, texture_box)
+
 		draw_mesh(&renderer, mesh_sphere, texture_sphere)
 
 		begin_timed_section(.UI)
