@@ -10,7 +10,6 @@ import bf "bitmap_font"
 
 main :: proc() {
 
-	// TODO(khvorov) Draw some reference lines
 	// TODO(khvorov) Better shading with normal maps
 	// TODO(khvorov) Texture filtering
 	// TODO(khvorov) Alpha blending (transparent UI)
@@ -80,6 +79,8 @@ main :: proc() {
 		ui.text_width = text_width
 		ui.text_height = proc(font: mu.Font) -> i32 {return bf.GLYPH_HEIGHT_PX}
 	}
+
+	draw_reference_lines := false
 
 	init_global_timings()
 
@@ -249,6 +250,8 @@ main :: proc() {
 					}
 				}
 
+				mu.checkbox(&ui, "-5..5 reference lines", &draw_reference_lines)
+
 				mu.end_window(&ui)
 			}
 
@@ -269,6 +272,24 @@ main :: proc() {
 		clear_buffers(&renderer)
 
 		end_timed_section(.Clear)
+
+		if draw_reference_lines {
+
+			for x in -5 .. 5 {
+				draw_line_world_space(
+					&renderer,
+					LineSegment3d{[3]f32{f32(x), 0, -5}, [3]f32{f32(x), 0, 5}},
+					0xFF111111,
+				)
+
+				draw_line_world_space(
+					&renderer,
+					LineSegment3d{[3]f32{f32(x), -5, 0}, [3]f32{f32(x), 5, 0}},
+					0xFF111111,
+				)
+			}
+
+		}
 
 		draw_mesh(&renderer, mesh_milk, texture_milk)
 		draw_mesh(&renderer, mesh_wheel, texture_wheel)

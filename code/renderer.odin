@@ -327,7 +327,7 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 				vertex_normal := renderer.normals_camera_space[normal_index]
 				normal_tip := normal_base + 0.3 * vertex_normal
 
-				draw_line(renderer, LineSegment3d{normal_base, normal_tip}, 0xFFFF00FF)
+				draw_line_camera_space(renderer, LineSegment3d{normal_base, normal_tip}, 0xFFFF00FF)
 			}
 
 			// NOTE(khvorov) Triangle normals
@@ -336,14 +336,27 @@ draw_mesh :: proc(renderer: ^Renderer, mesh: Mesh, texture: Maybe(Texture)) {
 			normal_base := est_center.xyz
 			normal_tip := normal_base + 0.3 * normal
 
-			draw_line(renderer, LineSegment3d{normal_base, normal_tip}, 0xFFFFFF00)
+			draw_line_camera_space(renderer, LineSegment3d{normal_base, normal_tip}, 0xFFFFFF00)
 		}
 
 	}
 
 }
 
-draw_line :: proc(renderer: ^Renderer, line: LineSegment3d, color: u32) {
+draw_line_world_space :: proc(renderer: ^Renderer, line: LineSegment3d, color: u32) {
+
+	transform_to_camera := get_look_axes4(renderer.camera_pos, renderer.camera_axes)
+
+	start := [4]f32{line.start.x, line.start.y, line.start.z, 1}
+	end := [4]f32{line.end.x, line.end.y, line.end.z, 1}
+
+	start_camera := transform_to_camera * start
+	end_camera := transform_to_camera * end
+
+	draw_line_camera_space(renderer, LineSegment3d{start_camera.xyz, end_camera.xyz}, color)
+}
+
+draw_line_camera_space :: proc(renderer: ^Renderer, line: LineSegment3d, color: u32) {
 
 	start := [4]f32{line.start.x, line.start.y, line.start.z, 1}
 	end := [4]f32{line.end.x, line.end.y, line.end.z, 1}
@@ -357,7 +370,7 @@ draw_line :: proc(renderer: ^Renderer, line: LineSegment3d, color: u32) {
 		start_dot := get_clipspace_normal_dot(start_clip, plane)
 		end_dot := get_clipspace_normal_dot(end_clip, plane)
 
-		if start_dot < 0 && end_dot < 0 {
+		if start_dot <= 0 && end_dot <= 0 {
 			out_of_bounds = true
 			break
 		}
@@ -380,11 +393,11 @@ draw_line :: proc(renderer: ^Renderer, line: LineSegment3d, color: u32) {
 
 	if !out_of_bounds {
 
-		start_clip.xy /= start_clip.w
-		end_clip.xy /= end_clip.w
+		start_ndc := start_clip.xy / start_clip.w
+		end_ndc := end_clip.xy / end_clip.w
 
-		start_px := ndc_to_pixels(start_clip.xy, renderer.pixels_dim)
-		end_px := ndc_to_pixels(end_clip.xy, renderer.pixels_dim)
+		start_px := ndc_to_pixels(start_ndc, renderer.pixels_dim)
+		end_px := ndc_to_pixels(end_ndc, renderer.pixels_dim)
 
 		draw_line_px(
 			renderer,
