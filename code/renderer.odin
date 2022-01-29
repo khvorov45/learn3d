@@ -623,11 +623,15 @@ draw_triangle_px :: proc(
 
 }
 
-draw_rect_px :: proc(renderer: ^Renderer, rect: Rect2d, color: u32) {
+draw_rect_px :: proc(renderer: ^Renderer, rect: Rect2d, color: [4]f32) {
 	bottomright := rect.topleft + rect.dim
 	for row in int(math.ceil(rect.topleft.y)) ..< int(math.ceil(bottomright.y)) {
 		for col in int(math.ceil(rect.topleft.x)) ..< int(math.ceil(bottomright.x)) {
-			renderer.pixels[row * renderer.pixels_dim.x + col] = color
+			old_col := renderer.pixels[row * renderer.pixels_dim.x + col]
+			old_col4 := color_to_4f32(old_col)
+			new_col := (1 - color.a) * old_col4 + color.a * color
+			new_col32 := color_to_u32argb(new_col)
+			renderer.pixels[row * renderer.pixels_dim.x + col] = new_col32
 		}
 	}
 }
@@ -685,7 +689,7 @@ draw_bitmap_glyph_px :: proc(
 	renderer: ^Renderer,
 	glyph: u8,
 	topleft: [2]f32,
-	color: u32,
+	color: [4]f32,
 ) {
 	px_coords := [2]int{int(math.ceil(topleft.x)), int(math.ceil(topleft.y))}
 	bitmap := bf.get_glyph_u8_slice(glyph)
@@ -701,7 +705,11 @@ draw_bitmap_glyph_px :: proc(
 
 				if px_row >= 0 && px_row < renderer.pixels_dim.y && px_col >= 0 && px_col < renderer.pixels_dim.x {
 					px_index := px_row * renderer.pixels_dim.x + px_coords.x + int(col)
-					renderer.pixels[px_index] = color
+					old_col := renderer.pixels[px_index]
+					old_col4 := color_to_4f32(old_col)
+					new_col := (1 - color.a) * old_col4 + color.a * color
+					new_col32 := color_to_u32argb(new_col)
+					renderer.pixels[px_index] = new_col32
 				}
 			}
 		}
@@ -713,7 +721,7 @@ draw_bitmap_string_px :: proc(
 	renderer: ^Renderer,
 	str: string,
 	topleft: [2]f32,
-	color: u32,
+	color: [4]f32,
 ) {
 
 	topleft := topleft

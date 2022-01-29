@@ -12,7 +12,6 @@ main :: proc() {
 
 	// TODO(khvorov) Better shading with normal maps
 	// TODO(khvorov) Texture filtering
-	// TODO(khvorov) Alpha blending (transparent UI)
 
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
@@ -81,6 +80,7 @@ main :: proc() {
 	}
 
 	draw_reference_lines := false
+	ui_transparency: f32 = 1
 
 	init_global_timings()
 
@@ -241,6 +241,9 @@ main :: proc() {
 
 			if mu.begin_window(&ui, "View options", mu.Rect{400, 350, 200, 700}) {
 
+				row_widths := [1]i32{200}
+				mu.layout_row(&ui, row_widths[:])
+
 				for option in DisplayOption {
 					cur_state := option in renderer.options
 					new_state := cur_state
@@ -251,6 +254,8 @@ main :: proc() {
 				}
 
 				mu.checkbox(&ui, "-5..5 reference lines", &draw_reference_lines)
+
+				mu.slider(&ui, &ui_transparency, 0, 1, 0, "UI transparency: %.2f")
 
 				mu.end_window(&ui)
 			}
@@ -307,7 +312,7 @@ main :: proc() {
 
 				case ^mu.Command_Text:
 					coords := [2]f32{f32(cmd.pos.x), f32(cmd.pos.y)}
-					color := mu_color_to_u32(cmd.color)
+					color := mu_color_to_4f32(cmd.color, ui_transparency)
 					draw_bitmap_string_px(&renderer, cmd.str, coords, color)
 
 				case ^mu.Command_Rect:
@@ -318,11 +323,11 @@ main :: proc() {
 					draw_rect_px(
 						&renderer,
 						clip_to_px_buffer_rect(rect, renderer.pixels_dim),
-						mu_color_to_u32(cmd.color),
+						mu_color_to_4f32(cmd.color, ui_transparency),
 					)
 
 				case ^mu.Command_Icon:
-					color := mu_color_to_u32(cmd.color)
+					color := mu_color_to_4f32(cmd.color, ui_transparency)
 					topleft := [2]f32{f32(cmd.rect.x), f32(cmd.rect.y)}
 					bottomright := topleft + [2]f32{f32(cmd.rect.w), f32(cmd.rect.h)}
 
@@ -379,11 +384,11 @@ main :: proc() {
 		end_timed_frame()
 
 	}
-
 }
 
-mu_color_to_u32 :: proc(col: mu.Color) -> u32 {
+mu_color_to_4f32 :: proc(col: mu.Color, ui_transparency: f32) -> [4]f32 {
 	col := col
-	result := (cast(^u32)&col)^
+	result := [4]f32{f32(col.r), f32(col.g), f32(col.b), f32(col.a)} / 255
+	result.a *= ui_transparency
 	return result
 }
