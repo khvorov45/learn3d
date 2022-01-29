@@ -521,9 +521,12 @@ draw_triangle_px :: proc(
 				x1_cur := x1_start + s1 * y_steps
 				x2_cur := x2_start + s2 * y_steps
 
-				for col := x1_cur; col < x2_cur; col += 1 {
+				x1_cur_ceil := math.ceil(x1_cur)
+				x2_cur_ceil := math.ceil(x2_cur)
 
-					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
+				for col := x1_cur_ceil; col < x2_cur_ceil; col += 1 {
+
+					px_coord := [2]int{int(col), int(row)}
 
 					point := [2]f32{col, row}
 					ap := point - top
@@ -601,9 +604,12 @@ draw_triangle_px :: proc(
 				x1_cur := x1_start + s1 * y_steps
 				x2_cur := x2_start + s2 * y_steps
 
-				for col := x1_cur; col < x2_cur; col += 1 {
+				x1_cur_ceil := math.ceil(x1_cur)
+				x2_cur_ceil := math.ceil(x2_cur)
 
-					px_coord := [2]int{int(math.ceil(col)), int(math.ceil(row))}
+				for col := x1_cur_ceil; col < x2_cur_ceil; col += 1 {
+
+					px_coord := [2]int{int(col), int(row)}
 
 					point := [2]f32{col, row}
 					ap := point - top
