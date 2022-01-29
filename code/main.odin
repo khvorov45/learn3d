@@ -10,7 +10,6 @@ import bf "bitmap_font"
 
 main :: proc() {
 
-	// TODO(khvorov) Better shading with normal maps
 	// TODO(khvorov) Texture filtering
 
 	window: Window
