@@ -71,6 +71,7 @@ read_mesh_and_texture :: proc(
 	texture: Maybe(Texture)
 	if texture_contents, ok := os.read_entire_file(fmt.tprintf("assets/{}.png", name)); ok {
 		texture = read_image(texture_contents)
+		delete(texture_contents)
 	}
 
 	return mesh, texture

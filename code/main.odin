@@ -10,8 +10,6 @@ import bf "bitmap_font"
 
 main :: proc() {
 
-	// TODO(khvorov) Texture filtering
-
 	window: Window
 	init_window(&window, "learn3d", 1280, 720)
 

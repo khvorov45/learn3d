@@ -48,6 +48,7 @@ DisplayOption :: enum {
 	BackfaceCull,
 	ZBuffer,
 	ShadePerVertex,
+	BilinearFilter,
 }
 
 Mesh :: struct {
@@ -124,7 +125,7 @@ init_renderer :: proc(
 	renderer^ = Renderer {
 		pixels = make([]u32, width * height),
 		pixels_dim = [2]int{width, height},
-		options = {.BackfaceCull, .BaseColor, .TextureColor},
+		options = {.BackfaceCull, .BaseColor, .TextureColor, .ShadePerVertex, .BilinearFilter},
 		z_buffer = make([]f32, width * height),
 		camera_axes = [3][3]f32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
 		vertices = make([][3]f32, max_vertices),
@@ -555,12 +556,38 @@ draw_triangle_px :: proc(
 							tex_coord01 *= this_w
 
 							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-							tex_coord_y := int(math.round(tex_coord_px.y))
-							tex_coord_x := int(math.round(tex_coord_px.x))
-							texel_index := tex_coord_y * tex.pitch + tex_coord_x
+							tex_coord_px_floor := [2]int{int(tex_coord_px.x), int(tex_coord_px.y)}
+							tex_coord_px_floor_f32 := [2]f32{
+								f32(tex_coord_px_floor.x),
+								f32(tex_coord_px_floor.y),
+							}
 
-							tex_color32 := tex.memory[texel_index]
-							tex_color := color_to_4f32(tex_color32)
+							tex_coord_frac := tex_coord_px - tex_coord_px_floor_f32
+
+							texel_index_left := tex_coord_px_floor.y * tex.pitch + tex_coord_px_floor.x
+							texel_index_right := texel_index_left + 1
+
+							tex_color32_left := tex.memory[texel_index_left]
+							tex_color32_right := tex.memory[texel_index_right]
+
+							tex_color32_bottomleft := tex.memory[texel_index_left + tex.pitch]
+							tex_color32_bottomright := tex.memory[texel_index_left + tex.pitch + 1]
+
+							tex_color_l := color_to_4f32(tex_color32_left)
+							tex_color_r := color_to_4f32(tex_color32_right)
+
+							tex_color_bl := color_to_4f32(tex_color32_bottomleft)
+							tex_color_br := color_to_4f32(tex_color32_bottomright)
+
+							tex_color_h := (1 - tex_coord_frac.x) * tex_color_l + tex_coord_frac.x * tex_color_r
+							tex_color_hb := (1 - tex_coord_frac.x) * tex_color_bl + tex_coord_frac.x * tex_color_br
+
+							tex_color := (1 - tex_coord_frac.y) * tex_color_h + tex_coord_frac.y * tex_color_hb
+
+							if !(.BilinearFilter in renderer.options) {
+								tex_color = tex_color_l
+							}
+
 							result_color *= tex_color
 						}
 
@@ -638,12 +665,38 @@ draw_triangle_px :: proc(
 							tex_coord01 *= this_w
 
 							tex_coord_px := tex_coord01 * (tex_dim_f32 - 1)
-							tex_coord_y := int(math.round(tex_coord_px.y))
-							tex_coord_x := int(math.round(tex_coord_px.x))
-							texel_index := tex_coord_y * tex.pitch + tex_coord_x
+							tex_coord_px_floor := [2]int{int(tex_coord_px.x), int(tex_coord_px.y)}
+							tex_coord_px_floor_f32 := [2]f32{
+								f32(tex_coord_px_floor.x),
+								f32(tex_coord_px_floor.y),
+							}
 
-							tex_color32 := tex.memory[texel_index]
-							tex_color := color_to_4f32(tex_color32)
+							tex_coord_frac := tex_coord_px - tex_coord_px_floor_f32
+
+							texel_index_left := tex_coord_px_floor.y * tex.pitch + tex_coord_px_floor.x
+							texel_index_right := texel_index_left + 1
+
+							tex_color32_left := tex.memory[texel_index_left]
+							tex_color32_right := tex.memory[texel_index_right]
+
+							tex_color32_bottomleft := tex.memory[texel_index_left + tex.pitch]
+							tex_color32_bottomright := tex.memory[texel_index_left + tex.pitch + 1]
+
+							tex_color_l := color_to_4f32(tex_color32_left)
+							tex_color_r := color_to_4f32(tex_color32_right)
+
+							tex_color_bl := color_to_4f32(tex_color32_bottomleft)
+							tex_color_br := color_to_4f32(tex_color32_bottomright)
+
+							tex_color_h := (1 - tex_coord_frac.x) * tex_color_l + tex_coord_frac.x * tex_color_r
+							tex_color_hb := (1 - tex_coord_frac.x) * tex_color_bl + tex_coord_frac.x * tex_color_br
+
+							tex_color := (1 - tex_coord_frac.y) * tex_color_h + tex_coord_frac.y * tex_color_hb
+
+							if !(.BilinearFilter in renderer.options) {
+								tex_color = tex_color_l
+							}
+
 							result_color *= tex_color
 						}
 
