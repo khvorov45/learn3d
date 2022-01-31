@@ -203,7 +203,7 @@ main :: proc() {
 
 			mu.begin(&ui)
 
-			if mu.begin_window(&ui, "Timings", mu.Rect{0, 0, 450, 350}) {
+			if mu.begin_window(&ui, "Timings (ms/hits/ms per hit)", mu.Rect{0, 0, 450, 350}) {
 
 				row_widths := [4]i32{100, 100, 100, 100}
 				mu.layout_row(&ui, row_widths[:])
