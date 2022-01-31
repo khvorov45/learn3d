@@ -1,4 +1,4 @@
-A software 3d renderer I made for learning purposes. Initially followed the course "Learn 3D graphics programming from scratch", eventually added some features (UI, timings, bilinear filtering, normal/color interpolation across triangles).
+A software 3d renderer I made for learning purposes. Initially followed the course ["3D graphics programming from scratch"](https://courses.pikuma.com/courses/learn-computer-graphics-programming), eventually added some features (UI, timings, bilinear filtering, normal/color interpolation across triangles).
 
 None of the code is optimized and it all runs very slowly.
 
