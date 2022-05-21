@@ -157,7 +157,7 @@ toggle_option :: proc(renderer: ^Renderer, option: DisplayOption) {
 
 clear_buffers :: proc(renderer: ^Renderer) {
 	for pixel in &renderer.pixels {
-		pixel = 0
+		pixel = 0xFF555555
 	}
 	for z_val in &renderer.z_buffer {
 		z_val = math.inf_f32(1)
